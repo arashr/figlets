@@ -1,0 +1,14 @@
+{
+  "SessionStart": [
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-update.sh",
+          "timeout": 5
+        }
+      ]
+    }
+  ]
+}

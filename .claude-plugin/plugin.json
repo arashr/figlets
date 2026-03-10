@@ -1,0 +1,13 @@
+{
+  "name": "figlets",
+  "version": "1.0.0",
+  "description": "Three-phase Figma design system workflow: build, audit, and document production components with full token binding.",
+  "author": {
+    "name": "Arash Ranjbaran",
+    "email": "arashr@icloud.com",
+    "url": "https://github.com/arashr"
+  },
+  "repository": "https://github.com/arashr/figlets",
+  "keywords": ["figma", "design-system", "components", "tokens", "mcp"],
+  "license": "MIT"
+}

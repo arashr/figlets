@@ -1,10 +1,14 @@
 {
   "name": "figlets",
   "description": "Figma component workflow skills for Claude Code",
+  "owner": {
+    "name": "Arash Ranjbaran",
+    "url": "https://github.com/arashr"
+  },
   "plugins": [
     {
       "name": "figlets",
-      "source": ".",
+      "source": "./",
       "description": "Three-phase Figma design system workflow: build, audit, and document production components with full token binding.",
       "version": "1.0.0"
     }

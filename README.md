@@ -28,10 +28,24 @@ Three skills, one workflow — **build → audit → document** Figma components
 
 ## Installation
 
+### One command (recommended)
+
 ```bash
-claude plugin marketplace add github:arashr/figlets
+curl -fsSL https://raw.githubusercontent.com/arashr/figlets/main/install.sh | bash
+```
+
+Downloads the three SKILL.md files into `~/.claude/skills/`. Works on macOS and Linux. No git or npm required.
+
+### Via Claude plugin marketplace
+
+```bash
+claude plugin marketplace add arashr/figlets
 claude plugin install figlets
 ```
+
+### Manual
+
+Copy each `skills/<name>/SKILL.md` to `~/.claude/skills/<name>/SKILL.md`
 
 ---
 

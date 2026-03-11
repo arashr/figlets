@@ -1,0 +1,12 @@
+{
+  "name": "figlets",
+  "description": "Figma component workflow skills for Claude Code",
+  "plugins": [
+    {
+      "name": "figlets",
+      "source": ".",
+      "description": "Three-phase Figma design system workflow: build, audit, and document production components with full token binding.",
+      "version": "1.0.0"
+    }
+  ]
+}

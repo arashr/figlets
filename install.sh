@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO="arashr/figlets"
 SKILLS_DIR="${HOME}/.claude/skills"
-SKILLS=("fig-create" "fig-qa" "fig-document")
+SKILLS=("fig-setup" "fig-create" "fig-qa" "fig-document")
 RAW="https://raw.githubusercontent.com/${REPO}/main/skills"
 
 echo ""
@@ -31,11 +31,12 @@ else
 fi
 
 echo ""
-echo "✅ figlets installed! Three skills are now available in Claude Code:"
+echo "✅ figlets installed! Four skills are now available in Claude Code:"
 echo ""
+echo "   /fig-setup     Bootstrap a design system variable architecture"
 echo "   /fig-create    Build a production-quality Figma component"
 echo "   /fig-qa        Audit a component for token/variable compliance"
 echo "   /fig-document  Generate a visual spec sheet and handover file"
 echo ""
-echo "Open any project with Claude Code and type /fig-create to get started."
+echo "Open any project with Claude Code and type /fig-setup or /fig-create to get started."
 echo ""

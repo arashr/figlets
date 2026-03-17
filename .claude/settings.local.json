@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__figma-console__figma_get_variables",
+      "mcp__figma-console__figma_navigate",
+      "mcp__figma-console__figma_get_status",
+      "mcp__figma-console__figma_search_components",
+      "mcp__figma-console__figma_execute",
+      "mcp__figma-console__figma_get_selection",
+      "mcp__figma-console__figma_take_screenshot",
+      "mcp__figma-console__figma_capture_screenshot",
+      "mcp__figma-console__figma_create_variable_collection",
+      "mcp__figma-console__figma_add_mode",
+      "mcp__figma-console__figma_rename_mode",
+      "mcp__figma-console__figma_batch_create_variables",
+      "mcp__figma-console__figma_batch_update_variables",
+      "mcp__figma-console__figma_setup_design_tokens"
+    ]
+  }
+}

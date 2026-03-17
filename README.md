@@ -1,8 +1,8 @@
 # figlets
 
-> A Claude Code plugin for building production-quality Figma design system components.
+> A Claude Code plugin for building production-quality Figma design systems and components.
 
-Three skills, one workflow — **build → audit → document** Figma components with full token binding, state variants, prototype wiring, and a machine-readable spec handover.
+Four skills covering the full design system lifecycle — from bootstrapping a variable architecture to building, auditing, and documenting components.
 
 ---
 
@@ -10,6 +10,7 @@ Three skills, one workflow — **build → audit → document** Figma components
 
 | Skill | Invoke | What it does |
 |---|---|---|
+| **fig-setup** | `/fig-setup` | Bootstraps a complete variable architecture — color ramps with contrast tables, semantic light/dark tokens, responsive typography, and spacing. Standalone — run it independently whenever starting a new design system. |
 | **fig-create** | `/fig-create` | Builds a component: auto-layout, all values token-bound, state variants wired for prototype, accessibility check |
 | **fig-qa** | `/fig-qa` | Audits every value — flags anything not bound to a variable; auto-fix or review one-by-one |
 | **fig-document** | `/fig-document` | Generates a visual spec sheet in Figma + `component-specs/[Name].md` for LLM code handover |
@@ -51,7 +52,12 @@ Copy each `skills/<name>/SKILL.md` to `~/.claude/skills/<name>/SKILL.md`
 
 ## Workflow
 
+Each skill is standalone — use them independently or chain them:
+
 ```
+/fig-setup   (optional — if starting a new design system from scratch)
+   ↓  intake → 4 variable collections built in Figma → optional token showcase
+
 /fig-create [url | frame | screenshot | description]
    ↓  token gap audit → build → self-audit → a11y check
 
@@ -60,6 +66,24 @@ Copy each `skills/<name>/SKILL.md` to `~/.claude/skills/<name>/SKILL.md`
 
 /fig-document
    ↓  spec sheet in Figma + component-specs/[Name].md handover file
+```
+
+---
+
+## fig-setup
+
+Bootstraps a complete Figma variable architecture for a new design system. Walks through project intake (platform, brand colors, scale choices), then builds 4 variable collections one at a time — previewing each before writing to Figma.
+
+- **Collection 1 — Primitives**: color ramps with WCAG/APCA contrast annotations, type scale, spacing scale. Hidden from publishing.
+- **Collection 2 — Color Semantics**: Light/Dark aliases into primitives. Role-based or Surface-based naming (Material 3 style). Mandatory contrast verification table before building.
+- **Collection 3 — Typography**: Mobile/Tablet/Desktop responsive type scale — 10 roles from display to code.
+- **Collection 4 — Spacing**: Mobile/Tablet/Desktop responsive spacing — component, layout, inset, stack, touch target, radius, and border tokens.
+- **Optional token showcase**: visual reference frame in Figma showing all color ramps, type roles, and spacing steps.
+
+Standalone — no other figlets skill is required before or after.
+
+```
+/fig-setup                   # starts intake questionnaire
 ```
 
 ---

@@ -4,7 +4,6 @@
   "description": "Figma design system workflow: bootstrap variables, build components, audit token compliance, and generate spec handovers.",
   "author": {
     "name": "Arash Ranjbaran",
-    "email": "arashr@icloud.com",
     "url": "https://github.com/arashr"
   },
   "repository": "https://github.com/arashr/figlets",

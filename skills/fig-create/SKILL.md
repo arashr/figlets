@@ -1,6 +1,6 @@
 ---
 name: fig-create
-version: 1.0.0
+version: 1.1.0
 description: Build a production-quality Figma component from a frame, screenshot, URL, or description. Binds all values to design tokens, detects sub-components, audits token gaps, wires interaction states, and proposes variants. Ends by suggesting /fig-qa.
 ---
 
@@ -27,6 +27,7 @@ These rules are non-negotiable. Violating them causes silent failures or runtime
 11. **ABSOLUTE + FILL** — `layoutSizingHorizontal/Vertical = 'FILL'` cannot be set on absolute-positioned children. For full-bleed overlays, use multiple fills on the parent frame instead, or keep the child as a layout child (not ABSOLUTE).
 12. **setBoundVariableForPaint fields** — only `'color'` is supported. `'opacity'` is NOT a valid field — it throws. To control fill/overlay opacity per state, hardcode it per variant or use the layer `opacity` property bound to a FLOAT variable instead.
 13. **VECTOR stroke weight** — vectors use `setBoundVariable('strokeWeight', v)` directly (same as TEXT), NOT the per-side pattern.
+14. **DROP_SHADOW with spread** — when applying a DROP_SHADOW effect with `spread > 0` on a frame, set `frame.clipsContent = true`. Figma requires clip-content ON to render spread shadows; without it the shadow is hidden entirely. This applies to focus rings, elevation shadows with spread, and any other spread-based effect.
 
 ---
 
@@ -357,6 +358,44 @@ for (const inst of toMigrate) inst.swapComponent(newSet.defaultVariant || newSet
 oldComp.remove();
 ```
 
+### Effect preservation (when building from a selected frame)
+
+When the source is a Figma frame, read and carry over its effects before building. Evaluate in order:
+
+```javascript
+const srcNode = figma.currentPage.selection[0];
+const sourceEffects = srcNode?.effects ? JSON.parse(JSON.stringify(srcNode.effects)) : [];
+
+// 1. Check if any elevation Effect Style matches the source shadow
+const effectStyles = figma.getLocalEffectStyles();
+let matchedStyleId = null;
+if (sourceEffects.length > 0 && effectStyles.length > 0) {
+  const srcShadow = sourceEffects.find(e => e.type === 'DROP_SHADOW');
+  if (srcShadow) {
+    const match = effectStyles.find(s => {
+      const se = s.effects.find(e => e.type === 'DROP_SHADOW');
+      return se && Math.abs(se.radius - srcShadow.radius) <= 2
+                && Math.abs(se.offset.y - srcShadow.offset.y) <= 2;
+    });
+    if (match) matchedStyleId = match.id;
+  }
+}
+
+// After building comp — apply effects:
+if (matchedStyleId) {
+  comp.effectStyleId = matchedStyleId;   // preferred: use the system's Effect Style
+} else if (sourceEffects.length > 0) {
+  comp.effects = sourceEffects;          // fallback: preserve raw effects
+  // Then attempt to bind each property to elevation variables by value match
+  // using bindEffect helper (see Variable binding helpers below)
+}
+```
+
+**Priority:** Effect Style match → raw preservation with variable binding → no effect.
+Report which path was taken in the build summary.
+
+---
+
 ### Node creation — ordering matters
 
 ```javascript
@@ -419,6 +458,17 @@ function bindRadius(node, varName) {
   const v = varByName[varName]; if (!v) return;
   ['topLeftRadius','topRightRadius','bottomLeftRadius','bottomRightRadius']
     .forEach(p => node.setBoundVariable(p, v));
+}
+
+function bindEffect(node, effectIndex, field, varName) {
+  // field: 'color' | 'radius' | 'spread' | 'offsetX' | 'offsetY'
+  // Bind each field in a separate call — multiple bindings on the same effect
+  // must be chained (each call returns the updated effect; use that as input to next call)
+  const v = varByName[varName]; if (!v) return false;
+  const clone = node.effects.map(e => ({ ...e }));
+  clone[effectIndex] = figma.variables.setBoundVariableForEffect(clone[effectIndex], field, v);
+  node.effects = clone;
+  return true;
 }
 
 function bindStrokeWeight(node, varName) {
@@ -604,6 +654,10 @@ const FOCUS_RING = [
   { type:'DROP_SHADOW', color:{r:0,g:0.42,b:0.88,a:1}, offset:{x:0,y:0}, radius:0, spread:4, visible:true, blendMode:'NORMAL' },
   { type:'DROP_SHADOW', color:{r:1,g:1,b:1,a:1},       offset:{x:0,y:0}, radius:0, spread:2, visible:true, blendMode:'NORMAL' }
 ];
+// REQUIRED: set clipsContent = true on the component for spread shadows to render.
+// Without it Figma hides the shadow entirely.
+focusVariant.clipsContent = true;
+focusVariant.effects = FOCUS_RING;
 ```
 
 ---

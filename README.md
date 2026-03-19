@@ -10,7 +10,7 @@ Four skills covering the full design system lifecycle — from bootstrapping a v
 
 | Skill | Invoke | What it does |
 |---|---|---|
-| **fig-setup** | `/fig-setup` | Bootstraps a complete variable architecture — color ramps with contrast tables, semantic light/dark tokens, responsive typography, and spacing. Standalone — run it independently whenever starting a new design system. |
+| **fig-setup** | `/fig-setup` | Bootstraps a complete variable architecture — color ramps with contrast tables, semantic light/dark tokens, scrim/state tokens, elevation Effect Styles, responsive typography, and spacing. Standalone — run it independently whenever starting a new design system. |
 | **fig-create** | `/fig-create` | Builds a component: auto-layout, all values token-bound, state variants wired for prototype, accessibility check |
 | **fig-qa** | `/fig-qa` | Audits every value — flags anything not bound to a variable; auto-fix or review one-by-one |
 | **fig-document** | `/fig-document` | Generates a visual spec sheet in Figma + `component-specs/[Name].md` for LLM code handover |
@@ -72,13 +72,14 @@ Each skill is standalone — use them independently or chain them:
 
 ## fig-setup
 
-Bootstraps a complete Figma variable architecture for a new design system. Walks through project intake (platform, brand colors, scale choices), then builds 4 variable collections one at a time — previewing each before writing to Figma.
+Bootstraps a complete Figma variable architecture for a new design system. Walks through project intake (platform, brand colors, scale choices), then builds 5 variable collections one at a time — previewing each before writing to Figma.
 
-- **Collection 1 — Primitives**: color ramps with WCAG/APCA contrast annotations, type scale, spacing scale. Hidden from publishing.
-- **Collection 2 — Color Semantics**: Light/Dark aliases into primitives. Role-based or Surface-based naming (Material 3 style). Mandatory contrast verification table before building.
-- **Collection 3 — Typography**: Mobile/Tablet/Desktop responsive type scale — 10 roles from display to code.
-- **Collection 4 — Spacing**: Mobile/Tablet/Desktop responsive spacing — component, layout, inset, stack, touch target, radius, and border tokens.
-- **Optional token showcase**: visual reference frame in Figma showing all color ramps, type roles, and spacing steps.
+- **Collection 1 — Primitives**: color ramps with WCAG/APCA contrast annotations, scrim primitives (black/white with alpha, for overlays and state layers), shadow numeric primitives (FLOAT), type scale, spacing scale. Hidden from publishing.
+- **Collection 2 — Color Semantics**: Light/Dark aliases into primitives. Role-based or Surface-based naming (Material 3 style). Scrim semantic tokens (`color/scrim/hover`, `color/scrim/overlay`, etc.) and shadow color aliases (`color/shadow/key`, `color/shadow/ambient`) — white-based scrims in dark mode for visible shadow depth. Mandatory contrast verification table before building.
+- **Collection 3 — Typography**: Material 3 naming (`type/display/lg|md|sm` → `type/label/lg|md|sm`), 15 roles. Figma Text Styles created with each property (fontSize, lineHeight, letterSpacing) bound to Collection 3 variables. Mobile/Desktop responsive modes.
+- **Collection 4 — Spacing**: Mobile/Desktop responsive — component, layout, inset, stack, touch target, radius, and border tokens.
+- **Collection 5 — Elevation**: 6 Effect Styles (`elevation/0`–`elevation/5`) with shadow offset, radius, and color all bound to variables. Shadow color updates automatically in Light/Dark mode.
+- **Optional token showcase**: visual reference frame with every value bound to a variable — color ramps with contrast badges, semantic color pairs, scrim overlay demos, typography scale, spacing bars, border radius, border width, and elevation cards.
 
 Standalone — no other figlets skill is required before or after.
 

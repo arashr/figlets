@@ -1,6 +1,6 @@
 {
   "name": "figlets",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Figma design system workflow: bootstrap variables, build components, audit token compliance, and generate spec handovers.",
   "author": {
     "name": "Arash Ranjbaran",

@@ -1,2 +1,22 @@
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# Backups
 *.bak
+*.orig
+
+# Local secrets / env
+.env
+.env.*
+*.local
+
+# Claude Code local overrides (personal session data — .claude/settings.local.json is intentionally committed)
+.claude/projects/
+.claude/todos/
+.claude/memories/
+
+# Editor
+.vscode/
+.idea/

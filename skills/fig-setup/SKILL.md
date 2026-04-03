@@ -16,16 +16,15 @@ You are a senior design systems engineer. Bootstrap a complete, production-grade
 
 Check these before every Figma variable tool call.
 
-1. **Batch over single** — always use `figma_batch_create_variables` (up to 100 variables per call) and `figma_batch_update_variables`. Never call `figma_create_variable` in a loop.
-2. **Atomic collection setup** — prefer `figma_setup_design_tokens` for creating a collection + modes + variables in one call when the full set is known.
-3. **Alias format** — when aliasing a variable to a primitive, use `{ type: "VARIABLE_ALIAS", id: "<primitiveVariableId>" }` as the value, not a raw hex or number.
-4. **Mode IDs** — `figma_add_mode` returns a `modeId`. Store all mode IDs immediately after creation — they're required for every value assignment.
-5. **Folder grouping** — use `/` separators in variable names (e.g., `color/brand/500`). Figma renders these as nested folders.
-6. **Primitives: hide from publishing** — after creating Collection 1, mark the collection `hiddenFromPublishing = true` via `figma_execute`. This prevents designers from accidentally applying raw primitives to components.
-7. **Never hardcode hex in Collections 2–4** — semantic and responsive collections must alias primitives. If you catch yourself writing a hex value in Collection 2+, stop and find the right primitive.
-8. **Conflict check first** — at the start of each collection, call `figma_get_variables` to check if a collection with that name already exists. Ask the user before overwriting.
+1. **Batch in one `use_figma` call** — create a collection, all modes, and all variables in a single Plugin API script. Never split variable creation across multiple tool calls.
+2. **Alias format** — when aliasing a variable to a primitive, use `{ type: "VARIABLE_ALIAS", id: "<primitiveVariableId>" }` as the value, not a raw hex or number.
+3. **Mode IDs** — `collection.addMode()` returns a `modeId`. Store all mode IDs immediately after creation — they're required for every value assignment.
+4. **Folder grouping** — use `/` separators in variable names (e.g., `color/brand/500`). Figma renders these as nested folders.
+5. **Primitives: hide from publishing** — set `collection.hiddenFromPublishing = true` inside the same `use_figma` call that creates Collection 1. This prevents designers from accidentally applying raw primitives to components.
+6. **Never hardcode hex in Collections 2–4** — semantic and responsive collections must alias primitives. If you catch yourself writing a hex value in Collection 2+, stop and find the right primitive.
+7. **Conflict check first** — at the start of each collection, call `mcp__Figma__get_variable_defs` to check if a collection with that name already exists. Ask the user before overwriting.
 
-For `figma_execute` calls (showcase phase), the component API rules from fig-create also apply: fill colors use `{r,g,b}` only, `FILL` sizing set after appendChild, async collection calls only.
+For `use_figma` calls (showcase phase), the component API rules from fig-create also apply: fill colors use `{r,g,b}` only, `FILL` sizing set after appendChild, async collection calls only.
 
 ---
 
@@ -104,7 +103,7 @@ Once intake is complete, explain this before any build work:
 
 ### Conflict check
 
-Call `figma_get_variables`. If a "Primitives" collection already exists, ask:
+Call `mcp__Figma__get_variable_defs`. If a "Primitives" collection already exists, ask:
 > "A 'Primitives' collection already exists. Overwrite it, append new variables, or skip to Collection 2?"
 
 ### 1A. Color Primitives
@@ -272,14 +271,14 @@ space/4    16
 
 After previewing all three sections and the user confirms:
 
-1. Call `figma_setup_design_tokens` (or `figma_create_variable_collection` + `figma_batch_create_variables`) to create the Primitives collection with **all** variable groups:
+1. Call `use_figma` to create the Primitives collection with **all** variable groups in a single script:
    - Color ramps (1A)
    - Scrim primitives (1A-ii) — 9 RGBA COLOR variables
    - Shadow primitives (1A-iii) — FLOAT variables for offsetY/radius per level
    - Type primitives (1B)
    - Spacing primitives (1C)
-2. Call `figma_execute` to set `hiddenFromPublishing = true` on the collection node.
-3. Call `figma_take_screenshot` — verify the variable panel shows the expected variable count and grouping. Confirm that `color/scrim/*` and `shadow/*/offset-y` appear in the list.
+   - Set `collection.hiddenFromPublishing = true` in the same call.
+2. Call `mcp__Figma__get_screenshot` — verify the variable panel shows the expected variable count and grouping. Confirm that `color/scrim/*` and `shadow/*/offset-y` appear in the list.
 
 Ask:
 > "Collection 1 — Primitives is built. Does the color ramp look right? Any hues to adjust before we wire up semantics in Collection 2?"
@@ -290,7 +289,7 @@ Ask:
 
 ### Conflict check
 
-Call `figma_get_variables`. If "Color / Semantics" collection already exists, ask to overwrite / append / skip.
+Call `mcp__Figma__get_variable_defs`. If "Color / Semantics" collection already exists, ask to overwrite / append / skip.
 
 ### Semantic mapping
 
@@ -442,9 +441,8 @@ Confirm any failures with the user and adjust the primitive reference before bui
 
 After confirmation:
 
-1. Call `figma_setup_design_tokens` (or `figma_create_variable_collection` + `figma_add_mode` for Light + Dark + `figma_batch_create_variables` with alias values referencing Collection 1 variable IDs).
-2. All values must be variable aliases — never raw hex.
-3. Call `figma_take_screenshot` to verify.
+1. Call `use_figma` to create the Color Semantics collection with Light + Dark modes and all alias variables in a single script. All values must be variable aliases referencing Collection 1 variable IDs — never raw hex.
+2. Call `mcp__Figma__get_screenshot` to verify.
 
 Ask:
 > "Collection 2 — Color Semantics is built. Do the dark mode mappings feel right? Any semantic roles missing for your product? When confirmed, we'll move to responsive typography."
@@ -455,7 +453,7 @@ Ask:
 
 ### Conflict check
 
-Call `figma_get_variables`. If "Typography" collection already exists, ask to overwrite / append / skip.
+Call `mcp__Figma__get_variable_defs`. If "Typography" collection already exists, ask to overwrite / append / skip.
 
 ### Type scale preview
 
@@ -554,12 +552,12 @@ type/label/sm/tracking        0.02 (all)
 After confirmation:
 
 1. Create "Typography" collection with Mobile, Tablet, Desktop modes (+ Wide if 4-tier).
-2. `figma_batch_create_variables` for all Number (size, line-height, weight, tracking) and String (family) variables, values set per mode.
+2. `use_figma` for all Number (size, line-height, weight, tracking) and String (family) variables, values set per mode.
 3. Family variables alias to Collection 1 `type/family/*` primitives.
 
 ### Create Figma Text Styles (required — do not skip)
 
-After variables are built, create one Figma Text Style per role and bind every property to the corresponding Typography variable. All 15 styles in a single `figma_execute` call:
+After variables are built, create one Figma Text Style per role and bind every property to the corresponding Typography variable. All 15 styles in a single `use_figma` call:
 
 ```javascript
 const allVars = await figma.variables.getLocalVariablesAsync();
@@ -601,7 +599,7 @@ for (const role of roles) {
 
 > **Note on fontFamily binding**: `setBoundVariable('fontFamily', var)` binds a String variable to the style's font family — supported in Figma plugin API. If it throws on the user's Figma version, fall back to setting `style.fontName = { family: resolvedFamilyValue, style: 'Regular' }` using the resolved primitive value, and log a warning.
 
-4. `figma_take_screenshot` — verify the Styles panel shows 15 text styles with variable binding badges on each property.
+4. `mcp__Figma__get_screenshot` — verify the Styles panel shows 15 text styles with variable binding badges on each property.
 
 Ask:
 > "Collection 3 — Typography is built and 15 text styles are created, all bound to variables. Do the size progressions feel right for your product? Any additional roles needed?"
@@ -612,7 +610,7 @@ Ask:
 
 ### Conflict check
 
-Call `figma_get_variables`. If "Spacing" collection already exists, ask to overwrite / append / skip.
+Call `mcp__Figma__get_variable_defs`. If "Spacing" collection already exists, ask to overwrite / append / skip.
 
 ### Spacing scale preview
 
@@ -678,7 +676,7 @@ After confirmation:
 1. Create "Spacing" collection with Mobile, Tablet, Desktop modes.
 2. Component/layout/inset/stack/touch values alias to Collection 1 spacing primitives.
 3. Border radius and border width are hardcoded (they don't follow the spacing scale).
-4. `figma_take_screenshot` to verify.
+4. `mcp__Figma__get_screenshot` to verify.
 
 Ask:
 > "Collection 4 — Spacing is built. Do the spacing values feel right for your product density? Any missing roles (grid gutters, column count variables)? Next up is Collection 5 — Elevation."
@@ -689,7 +687,7 @@ Ask:
 
 ### Conflict check
 
-Call `figma_get_variables`. If shadow primitive variables already exist in "Primitives", or if Effect Styles named `elevation/*` exist, ask to overwrite / append / skip.
+Call `mcp__Figma__get_variable_defs`. If shadow primitive variables already exist in "Primitives", or if Effect Styles named `elevation/*` exist, ask to overwrite / append / skip.
 
 ### Elevation scale preview
 
@@ -726,7 +724,7 @@ After confirmation:
 
 1. The FLOAT shadow primitive variables (`shadow/*/offset-y`, `shadow/*/radius`, `shadow/ambient/*/radius`) were already created as part of Collection 1 (1A-iii). Verify they exist before proceeding.
 2. The COLOR shadow aliases (`color/shadow/key`, `color/shadow/ambient`) were created in Collection 2. Resolve their variable IDs.
-3. Create **Figma Effect Styles** (one per level) via `figma_execute`:
+3. Create **Figma Effect Styles** (one per level) via `use_figma`:
 
 ```javascript
 const allVars = await figma.variables.getLocalVariablesAsync();
@@ -784,7 +782,7 @@ for (const def of levels) {
 
 > ⚠️ **Binding order matters**: each `setBoundVariableForEffect` call takes the *previous call's return value* as its first argument. Never pass the original `keyEff` object to a second binding — the first binding would be lost (the unintended-unbind bug). Use `bindEffectField` above which wraps this safely.
 
-4. Verify: `figma_take_screenshot` — the Styles panel should show 6 Effect Styles (`elevation/0` through `elevation/5`) with variable binding badges on `offsetY`, `radius`, and `color`.
+4. Verify: `mcp__Figma__get_screenshot` — the Styles panel should show 6 Effect Styles (`elevation/0` through `elevation/5`) with variable binding badges on `offsetY`, `radius`, and `color`.
 
 5. Read back to confirm bindings were applied:
 ```javascript
@@ -856,7 +854,7 @@ If yes:
 
 ### Showcase setup
 
-1. Check if a `00 · Tokens` page exists via `figma_execute`. If not, create it with `figma.createPage()` and set as current page.
+1. Check if a `00 · Tokens` page exists via `use_figma`. If not, create it with `figma.createPage()` and set as current page.
 2. Build a vertical auto-layout frame named `Token Showcase — [Project Name]`.
 
 **The outer frame uses the design system:**
@@ -1096,9 +1094,9 @@ Switching Light ↔ Dark mode changes the shadow color via `color/shadow/key` an
 
 ### Final
 
-`figma_take_screenshot` to show the completed showcase. Switching the frame's Color/Semantics mode (Light ↔ Dark) must update all fills, scrim overlays, and shadow colors visibly — if anything stays static, a binding is missing.
+`mcp__Figma__get_screenshot` to show the completed showcase. Switching the frame's Color/Semantics mode (Light ↔ Dark) must update all fills, scrim overlays, and shadow colors visibly — if anything stays static, a binding is missing.
 
-Pre-flight component API rules (FILL sizing, appendChild order, async collection calls) apply to all `figma_execute` calls in this phase.
+Pre-flight component API rules (FILL sizing, appendChild order, async collection calls) apply to all `use_figma` calls in this phase.
 
 ---
 

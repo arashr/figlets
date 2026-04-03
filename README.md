@@ -19,42 +19,24 @@ Four skills covering the full design system lifecycle — from bootstrapping a v
 
 ## Prerequisites & Setup
 
-figlets requires the [figma-console MCP](https://github.com/southleft/figma-console-mcp) — a local MCP server that bridges Claude Code to Figma Desktop. This is what gives Claude the ability to read and write to your Figma file.
+figlets uses Figma's native MCP — no bridge plugin or local server required. The MCP gives Claude direct read and write access to your Figma files via the Plugin API.
 
 ### 1. Get a Figma Personal Access Token
 
 In Figma: **Account → Settings → Personal access tokens → Generate new token**. Copy the token (starts with `figd_`) — it's shown only once.
 
-### 2. Add the MCP to Claude Code
+### 2. Connect the Figma MCP to Claude Code
 
-```bash
-claude mcp add figma-console -s user \
-  -e FIGMA_ACCESS_TOKEN=figd_YOUR_TOKEN_HERE \
-  -e ENABLE_MCP_APPS=true \
-  -- npx -y figma-console-mcp@latest
-```
+Follow Figma's official MCP setup guide to add the Figma MCP to Claude Code. You will need your personal access token from step 1.
 
-This installs the MCP globally for all your Claude Code sessions.
+Once connected, you should see `mcp__Figma__` tools available in your Claude Code session.
 
-### 3. Install the Desktop Bridge plugin in Figma
+### 3. Test the connection
 
-1. Open **Figma Desktop**
-2. Go to **Plugins → Development → Import plugin from manifest**
-3. Select `~/.figma-console-mcp/plugin/manifest.json`
-4. Open a Figma file and run the plugin — it starts the WebSocket bridge
+Copy the URL of a Figma file and ask Claude:
+> "What's on the first page of this Figma file? [paste URL]"
 
-> The plugin must be running in Figma Desktop whenever you use figlets. It auto-updates on each launch — no re-importing needed after MCP updates.
-
-### 4. Test the connection
-
-Restart Claude Code, then try:
-> "Check Figma status"
-
-Claude should report a WebSocket connection. If it does, figlets is ready to use.
-
----
-
-> For local/contributor setup, troubleshooting, and cloud mode options, see the [figma-console-mcp README](https://github.com/southleft/figma-console-mcp).
+Claude should describe the file contents. If it does, figlets is ready to use.
 
 ---
 

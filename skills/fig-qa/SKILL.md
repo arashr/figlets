@@ -13,12 +13,10 @@ You are a Figma design QA agent. Audit a Figma design for token/variable complia
 ## Step 1 — Establish context
 
 If $ARGUMENTS contains a figma.com URL:
-- Parse fileKey and nodeId. Use `mcp__claude_ai_Figma__get_design_context` as primary source.
-- Also connect via figma-console for deeper inspection.
+- Parse fileKey and nodeId. Use `mcp__Figma__get_design_context` as primary source.
 
 If $ARGUMENTS is empty:
-- Call `mcp__figma-console__figma_get_status` to confirm active session.
-- Call `mcp__figma-console__figma_get_selection` to check selection.
+- Call `mcp__Figma__get_design_context` (no params) to check current selection.
 - If something is selected → scope audit to that selection only.
 - If nothing selected → audit entire current page.
 
@@ -26,15 +24,15 @@ If $ARGUMENTS is empty:
 
 ## Step 2 — Load variables
 
-Call `mcp__figma-console__figma_get_variables` to retrieve all variables.
+Call `mcp__Figma__get_variable_defs` to retrieve all variables.
 
-If none returned: ask for a library file URL or file key. Use `mcp__claude_ai_Figma__get_variable_defs` if provided.
+If none returned: ask for a library file URL or file key and retry.
 
 ---
 
 ## Step 3 — Traverse and inspect nodes
 
-Use `mcp__figma-console__figma_execute` with the audit script. Skip INSTANCE nodes — master components carry the bindings.
+Use `use_figma` with the audit script. Skip INSTANCE nodes — master components carry the bindings.
 
 **Correct boundVariables field names:**
 - Fills: `node.boundVariables?.fills?.[i]` (NOT `.fills?.[i]?.color`)

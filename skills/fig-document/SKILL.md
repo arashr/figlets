@@ -14,7 +14,7 @@ You are a Figma documentation engineer. Generate a complete spec sheet inside Fi
 
 If $ARGUMENTS contains a component name or Figma URL: locate it.
 
-Otherwise check `mcp__figma-console__figma_get_selection`. If a COMPONENT or COMPONENT_SET is selected, use it.
+Otherwise call `mcp__Figma__get_design_context` (no params). If a COMPONENT or COMPONENT_SET is selected, use it.
 
 If nothing is selected, ask: "Which component should I document? (name or select it in Figma)"
 
@@ -38,7 +38,7 @@ return {
 
 ## Step 2 — Read bounding boxes for anatomy
 
-Use `mcp__figma-console__figma_execute` to read the **absolute bounding box** of each named child node. This gives real pixel positions for annotation badges — no estimating.
+Use `use_figma` to read the **absolute bounding box** of each named child node. This gives real pixel positions for annotation badges — no estimating.
 
 ```javascript
 const comp = figma.currentPage.findOne(n =>
@@ -130,7 +130,7 @@ return JSON.stringify(resolved);
 
 ## Step 4 — Build the spec sheet in Figma
 
-Use `mcp__figma-console__figma_execute`. Follow pre-flight rules:
+Use `use_figma`. Follow pre-flight rules:
 - `layoutSizingHorizontal = 'FILL'` always AFTER `parent.appendChild()`
 - `textAutoResize = 'HEIGHT'` always AFTER append
 - Fill colors: `{ r, g, b }` only

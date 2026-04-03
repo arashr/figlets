@@ -10,7 +10,7 @@ You are a Figma design system engineer. Build production-quality components: aut
 
 ---
 
-## PRE-FLIGHT: Figma API rules (check before every figma_execute call)
+## PRE-FLIGHT: Figma API rules (check before every use_figma call)
 
 These rules are non-negotiable. Violating them causes silent failures or runtime errors.
 
@@ -33,7 +33,7 @@ These rules are non-negotiable. Violating them causes silent failures or runtime
 
 ## Step 1 — Load variables
 
-Call `mcp__figma-console__figma_get_variables` to retrieve all variables from the active file.
+Call `mcp__Figma__get_variable_defs` to retrieve all variables from the active file.
 
 Parse into four maps for use throughout:
 - `colorVarByHex` — resolve each COLOR variable's first-mode value to hex, map hex → variable. Prefer semantic tokens over primitives when both resolve to the same hex.
@@ -47,7 +47,7 @@ If no variables found: ask for a library file key. If none available, warn that 
 
 ## Step 2 — Sub-component registry check
 
-Call `mcp__figma-console__figma_search_components` to get all existing components in the file.
+Call `search_design_system` to get all existing components in the file.
 
 Before building, check this list against any sub-elements you anticipate needing (tags, avatars, icons, badges, buttons, etc.). If an existing component matches:
 - Propose reusing it as an instance rather than rebuilding
@@ -60,11 +60,10 @@ Do not search for sub-components that are clearly unique to this design.
 ## Step 3 — Get the component input
 
 If $ARGUMENTS contains a figma.com URL:
-- Parse fileKey and nodeId. Use `mcp__claude_ai_Figma__get_design_context` to read the design.
-- Also call `mcp__figma-console__figma_get_selection`.
+- Parse fileKey and nodeId. Use `mcp__Figma__get_design_context` to read the design.
 
 If $ARGUMENTS is empty:
-- Check `mcp__figma-console__figma_get_selection`. Use that frame if selected.
+- Call `mcp__Figma__get_design_context` (no params). Use that frame if selected.
 - Otherwise ask:
   ```
   What would you like to build?
@@ -78,7 +77,7 @@ If $ARGUMENTS is empty:
 
 ## Step 4 — Token gap audit (pre-build)
 
-Before writing any component code, scan the source design for values that have no exact token match. Run via `mcp__figma-console__figma_execute`:
+Before writing any component code, scan the source design for values that have no exact token match. Run via `use_figma`:
 
 ```javascript
 // Collect all raw values from the source node
@@ -203,7 +202,7 @@ Ask: "Does this look right? Say yes to build, or correct anything."
 
 ## Step 6 — Build the component
 
-Use `mcp__figma-console__figma_execute`. Follow all pre-flight rules from the top.
+Use `use_figma`. Follow all pre-flight rules from the top.
 
 ### Placement
 
@@ -562,7 +561,7 @@ Report: "Self-audit: N violations auto-fixed after build." If any cannot be fixe
 
 ### Screenshot and iterate
 
-Call `mcp__figma-console__figma_take_screenshot`. Analyze alignment, spacing, proportions. Fix issues. Max 3 iterations.
+Call `mcp__Figma__get_screenshot`. Analyze alignment, spacing, proportions. Fix issues. Max 3 iterations.
 
 ---
 
@@ -764,7 +763,7 @@ Ask: "Which additional variants would you like? (numbers / all / none)"
 
 ## Step 10 — Component description
 
-Generate a description and apply via `figma_execute`:
+Generate a description and apply via `use_figma`:
 ```javascript
 const comp = figma.currentPage.findOne(n =>
   n.name === 'YourComponent' && (n.type === 'COMPONENT' || n.type === 'COMPONENT_SET'));

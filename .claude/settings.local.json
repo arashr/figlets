@@ -1,20 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "mcp__figma-console__figma_get_variables",
-      "mcp__figma-console__figma_navigate",
-      "mcp__figma-console__figma_get_status",
-      "mcp__figma-console__figma_search_components",
-      "mcp__figma-console__figma_execute",
-      "mcp__figma-console__figma_get_selection",
-      "mcp__figma-console__figma_take_screenshot",
-      "mcp__figma-console__figma_capture_screenshot",
-      "mcp__figma-console__figma_create_variable_collection",
-      "mcp__figma-console__figma_add_mode",
-      "mcp__figma-console__figma_rename_mode",
-      "mcp__figma-console__figma_batch_create_variables",
-      "mcp__figma-console__figma_batch_update_variables",
-      "mcp__figma-console__figma_setup_design_tokens"
+      "mcp__Figma__get_variable_defs",
+      "mcp__Figma__get_design_context",
+      "mcp__Figma__get_screenshot",
+      "mcp__Figma__get_metadata",
+      "mcp__Figma__get_figjam",
+      "mcp__Figma__create_design_system_rules",
+      "mcp__5acfe31c-99f3-4913-a1f2-975bf3af4ebb__use_figma",
+      "mcp__5acfe31c-99f3-4913-a1f2-975bf3af4ebb__search_design_system",
+      "mcp__5acfe31c-99f3-4913-a1f2-975bf3af4ebb__get_variable_defs",
+      "mcp__5acfe31c-99f3-4913-a1f2-975bf3af4ebb__get_design_context",
+      "mcp__5acfe31c-99f3-4913-a1f2-975bf3af4ebb__get_screenshot",
+      "mcp__5acfe31c-99f3-4913-a1f2-975bf3af4ebb__get_metadata",
+      "mcp__5acfe31c-99f3-4913-a1f2-975bf3af4ebb__create_new_file",
+      "Bash(git add:*)"
     ]
   }
 }

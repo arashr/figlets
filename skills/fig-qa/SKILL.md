@@ -12,21 +12,15 @@ You are a Figma design QA agent. Audit a Figma design for token/variable complia
 
 ## Step 1 — Establish context
 
-If $ARGUMENTS contains a figma.com URL:
-- Parse fileKey and nodeId. Use `mcp__Figma__get_design_context` as primary source.
+If $ARGUMENTS contains a figma.com URL: parse fileKey and nodeId, use `mcp__Figma__get_design_context` as primary source.
 
-If $ARGUMENTS is empty:
-- Call `mcp__Figma__get_design_context` (no params) to check current selection.
-- If something is selected → scope audit to that selection only.
-- If nothing selected → audit entire current page.
+If $ARGUMENTS is empty: call `mcp__Figma__get_design_context` (no params). If something is selected → scope audit to that selection. If nothing selected → audit entire current page.
 
 ---
 
 ## Step 2 — Load variables
 
-Call `mcp__Figma__get_variable_defs` to retrieve all variables.
-
-If none returned: ask for a library file URL or file key and retry.
+Call `mcp__Figma__get_variable_defs`. If none returned: ask for a library file URL or file key and retry.
 
 ---
 
@@ -120,7 +114,7 @@ scope.forEach(node => allViolations.push(...auditNode(node)));
 return JSON.stringify(allViolations);
 ```
 
-**Note on false positives:** `strokeWeight = 1` on nodes with `strokes = []` (empty array) is Figma's default — not a real violation. The audit script above already guards this with `node.strokes?.length > 0`.
+**Note on false positives:** `strokeWeight = 1` on nodes with `strokes = []` is Figma's default — not a violation. The audit script already guards this with `node.strokes?.length > 0`.
 
 ---
 
@@ -128,22 +122,14 @@ return JSON.stringify(allViolations);
 
 Resolve COLOR variables to hex via first-mode value. Build hex → variable map.
 
-- **Color:** Convert rgb to hex. Exact match first. Then nearest by Euclidean RGB distance per channel avg. If distance > 30 → suggest "No close variable — consider creating one."
-- **Spacing / border:** Nearest FLOAT variable. Prefer exact. Note if approximated.
-- **Typography:** Nearest FLOAT variable.
+- **Color:** Convert rgb to hex. Exact match first, then nearest by Euclidean RGB distance avg. Distance > 30 → suggest "No close variable — consider creating one."
+- **Spacing / border / typography:** Nearest FLOAT variable. Prefer exact. Note if approximated.
 
 ---
 
 ## Step 5 — Output the report
 
-### Audit scope
-File, page, selection or full page.
-
-### Variable library
-Variables found and source.
-
-### Violation summary
-e.g. "Found 23 violations: 8 color, 7 spacing, 5 border, 3 typography."
+**Audit scope:** file, page, selection or full page. **Variable library:** variables found and source. **Violation summary:** e.g. "Found 23 violations: 8 color, 7 spacing, 5 border, 3 typography."
 
 ### Violations table
 
@@ -165,8 +151,7 @@ What would you like to do?
 3. Skip fixing (report only)
 ```
 
-**Option 1 — Fix all:**
-Run fix script for each violation. Collect `fixed[]` and `skipped[]`.
+**Option 1 — Fix all:** Run fix script for each violation. Collect `fixed[]` and `skipped[]`.
 
 **Option 2 — One by one:**
 ```
@@ -175,8 +160,7 @@ Fix this? (y / n / skip all)
 ```
 `y` → fix. `n` → add to known-issues. `skip all` → remaining to skipped.
 
-**Option 3 — Skip:**
-Add all to known-issues. Do not modify Figma.
+**Option 3 — Skip:** Add all to known-issues. Do not modify Figma.
 
 ### Fix script pattern
 
@@ -217,7 +201,7 @@ return 'OK';
 
 ## Step 7 — Write changelog.md
 
-After fixing (or if zero violations), append to `changelog.md` in the working directory.
+After fixing (or if zero violations), append to `changelog.md` in the working directory:
 
 ```markdown
 ## [YYYY-MM-DD HH:MM] fig-qa — <file> · <page> · <component>
@@ -237,7 +221,7 @@ Prepend the new entry below a `---` separator (newest entry at top).
 
 ## Step 8 — Write known-issues.md
 
-If unfixed violations exist, append to `known-issues.md`.
+If unfixed violations exist, append to `known-issues.md`:
 
 ```markdown
 ## [YYYY-MM-DD HH:MM] fig-qa — <file> · <page> · <component>
@@ -253,7 +237,7 @@ If all fixed with no known issues, do not modify known-issues.md.
 
 ## Step 9 — Suggest next step
 
-If all violations fixed (or zero violations found):
+If all violations fixed (or zero found):
 ```
 QA complete — no outstanding violations.
 
@@ -261,7 +245,7 @@ Ready for documentation? Run /fig-document to generate the component spec sheet,
 anatomy diagram, and MCP-ready handover file.
 ```
 
-If violations remain unfixed:
+If violations remain:
 ```
 QA complete — <N> violations remain in known-issues.md.
 

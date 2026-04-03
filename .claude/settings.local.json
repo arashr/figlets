@@ -14,7 +14,9 @@
       "mcp__5acfe31c-99f3-4913-a1f2-975bf3af4ebb__get_screenshot",
       "mcp__5acfe31c-99f3-4913-a1f2-975bf3af4ebb__get_metadata",
       "mcp__5acfe31c-99f3-4913-a1f2-975bf3af4ebb__create_new_file",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(wc -l skills/*/SKILL.md)"
     ]
   }
 }

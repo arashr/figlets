@@ -14,25 +14,21 @@ You are a senior design systems engineer. Bootstrap a complete, production-grade
 
 ## PRE-FLIGHT: Variable API rules
 
-Check these before every Figma variable tool call.
-
 1. **Batch in one `use_figma` call** — create a collection, all modes, and all variables in a single Plugin API script. Never split variable creation across multiple tool calls.
 2. **Alias format** — when aliasing a variable to a primitive, use `{ type: "VARIABLE_ALIAS", id: "<primitiveVariableId>" }` as the value, not a raw hex or number.
 3. **Mode IDs** — `collection.addMode()` returns a `modeId`. Store all mode IDs immediately after creation — they're required for every value assignment.
 4. **Folder grouping** — use `/` separators in variable names (e.g., `color/brand/500`). Figma renders these as nested folders.
-5. **Primitives: hide from publishing** — set `collection.hiddenFromPublishing = true` inside the same `use_figma` call that creates Collection 1. This prevents designers from accidentally applying raw primitives to components.
+5. **Primitives: hide from publishing** — set `collection.hiddenFromPublishing = true` inside the same `use_figma` call that creates Collection 1.
 6. **Never hardcode hex in Collections 2–4** — semantic and responsive collections must alias primitives. If you catch yourself writing a hex value in Collection 2+, stop and find the right primitive.
 7. **Conflict check first** — at the start of each collection, call `mcp__Figma__get_variable_defs` to check if a collection with that name already exists. Ask the user before overwriting.
 
-For `use_figma` calls (showcase phase), the component API rules from fig-create also apply: fill colors use `{r,g,b}` only, `FILL` sizing set after appendChild, async collection calls only.
+For `use_figma` calls (showcase phase), component API rules also apply: fill colors use `{r,g,b}` only, `FILL` sizing set after appendChild, async collection calls only.
 
 ---
 
 ## Phase 0 — Project Intake
 
-Ask each question individually, one at a time. Wait for the answer before asking the next. Do not ask multiple questions in the same message.
-
-Store each answer as project context before proceeding. Reference all answers throughout the session.
+Ask each question individually, one at a time. Wait for the answer before asking the next.
 
 **Q1 — Project name**
 > What should this design system be called?
@@ -116,17 +112,10 @@ Generate a full ramp for every brand color + neutral + utility ramps (danger/suc
 - **100–900, 9 steps**: 100, 200, 300, 400, 500, 600, 700, 800, 900
 - **0–1000, 11 steps**: 0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000
 
-**Ramps to generate (always):**
-- `color/[primary-name]` — from brand primary hex
-- `color/[secondary-name]` — from secondary hex (or derive complementary if not provided)
-- `color/neutral` — no color cast unless brand calls for it
-- `color/red` — danger/error
-- `color/green` — success/positive
-- `color/yellow` — warning/caution
-- `color/blue` — info (use brand blue if primary is blue, else a standard)
+**Ramps to generate (always):** `color/[primary-name]`, `color/[secondary-name]` (derive complementary if not provided), `color/neutral`, `color/red` (danger/error), `color/green` (success/positive), `color/yellow` (warning/caution), `color/blue` (info).
 
 **Ramp rules:**
-- Mid step (500 or 500-equivalent) = closest match to the provided brand hex
+- Mid step (500 or equivalent) = closest match to the provided brand hex
 - Lighten toward minimum step (mix with white, reduce saturation slightly)
 - Darken toward maximum step (mix with black, preserve hue)
 - Each adjacent step must maintain ≥3:1 contrast ratio for palette legibility
@@ -156,7 +145,7 @@ Note: WCAG 2.2 AA = 4.5:1 body, 3:1 large text (≥24px or ≥18.67px bold). AAA
 
 ### 1A-ii. Scrim Primitives
 
-Semi-transparent overlay colors used for hover states, pressed states, modal backdrops, and disabled washes. Store as COLOR variables with alpha baked in — Figma COLOR variables support `{r,g,b,a}`, so these are valid.
+Semi-transparent overlay colors for hover, pressed, modal backdrops, and disabled washes. Store as COLOR variables with alpha baked in — Figma COLOR variables support `{r,g,b,a}`.
 
 **Show as preview table, then confirm before building:**
 
@@ -178,7 +167,7 @@ color/scrim/white/20   rgba(255,255,255, 0.20)   ← dark-mode key shadow (eleva
 
 ### 1A-iii. Shadow Primitives
 
-Numeric values for the elevation shadow system. These are building blocks for Collection 5 Effect Styles.
+Numeric values for the elevation shadow system. FLOAT variables for offsetY/radius per level.
 
 ```
 — Shadow key (main directional shadow) —
@@ -201,7 +190,7 @@ shadow/ambient/5/radius   20
 
 ### 1B. Type Primitives
 
-Raw type values. These are building blocks — never applied directly to components. Name format: `type/[property]/[step]`
+Raw type values — never applied directly to components. Name format: `type/[property]/[step]`
 
 **Show as a preview table, then confirm before building:**
 
@@ -271,17 +260,10 @@ space/4    16
 
 After previewing all three sections and the user confirms:
 
-1. Call `use_figma` to create the Primitives collection with **all** variable groups in a single script:
-   - Color ramps (1A)
-   - Scrim primitives (1A-ii) — 9 RGBA COLOR variables
-   - Shadow primitives (1A-iii) — FLOAT variables for offsetY/radius per level
-   - Type primitives (1B)
-   - Spacing primitives (1C)
-   - Set `collection.hiddenFromPublishing = true` in the same call.
+1. Call `use_figma` to create the Primitives collection with **all** variable groups in a single script: color ramps (1A), scrim primitives (1A-ii), shadow primitives (1A-iii), type primitives (1B), spacing primitives (1C). Set `collection.hiddenFromPublishing = true` in the same call.
 2. Call `mcp__Figma__get_screenshot` — verify the variable panel shows the expected variable count and grouping. Confirm that `color/scrim/*` and `shadow/*/offset-y` appear in the list.
 
-Ask:
-> "Collection 1 — Primitives is built. Does the color ramp look right? Any hues to adjust before we wire up semantics in Collection 2?"
+Ask: "Collection 1 — Primitives is built. Does the color ramp look right? Any hues to adjust before we wire up semantics in Collection 2?"
 
 ---
 
@@ -293,7 +275,7 @@ Call `mcp__Figma__get_variable_defs`. If "Color / Semantics" collection already 
 
 ### Semantic mapping
 
-Use the naming convention the user chose in intake. Show the full preview table before building. All values shown as primitive aliases (written as names for review — resolved to variable IDs when building).
+Use the naming convention chosen in intake. Show the full preview table before building. All values shown as primitive aliases (written as names for review — resolved to variable IDs when building).
 
 **Role-based naming:**
 
@@ -439,13 +421,10 @@ Confirm any failures with the user and adjust the primitive reference before bui
 
 ### Build Collection 2
 
-After confirmation:
-
 1. Call `use_figma` to create the Color Semantics collection with Light + Dark modes and all alias variables in a single script. All values must be variable aliases referencing Collection 1 variable IDs — never raw hex.
 2. Call `mcp__Figma__get_screenshot` to verify.
 
-Ask:
-> "Collection 2 — Color Semantics is built. Do the dark mode mappings feel right? Any semantic roles missing for your product? When confirmed, we'll move to responsive typography."
+Ask: "Collection 2 — Color Semantics is built. Do the dark mode mappings feel right? Any semantic roles missing for your product? When confirmed, we'll move to responsive typography."
 
 ---
 
@@ -457,9 +436,7 @@ Call `mcp__Figma__get_variable_defs`. If "Typography" collection already exists,
 
 ### Type scale preview
 
-Roles follow **Material 3 naming**: every category uses `lg` / `md` / `sm` suffixes — no HTML tags, consistent size vocabulary matching the spacing scale convention.
-
-Modes: Mobile | Tablet | Desktop (+ Wide if 4-tier). Show the full table before building.
+Roles follow **Material 3 naming**: every category uses `lg` / `md` / `sm` suffixes. Modes: Mobile | Tablet | Desktop (+ Wide if 4-tier). Show the full table before building.
 
 ```
 Collection: Typography
@@ -549,8 +526,6 @@ type/label/sm/tracking        0.02 (all)
 
 ### Build Collection 3
 
-After confirmation:
-
 1. Create "Typography" collection with Mobile, Tablet, Desktop modes (+ Wide if 4-tier).
 2. `use_figma` for all Number (size, line-height, weight, tracking) and String (family) variables, values set per mode.
 3. Family variables alias to Collection 1 `type/family/*` primitives.
@@ -601,8 +576,7 @@ for (const role of roles) {
 
 4. `mcp__Figma__get_screenshot` — verify the Styles panel shows 15 text styles with variable binding badges on each property.
 
-Ask:
-> "Collection 3 — Typography is built and 15 text styles are created, all bound to variables. Do the size progressions feel right for your product? Any additional roles needed?"
+Ask: "Collection 3 — Typography is built and 15 text styles are created, all bound to variables. Do the size progressions feel right for your product? Any additional roles needed?"
 
 ---
 
@@ -671,15 +645,12 @@ space/border/thick       4
 
 ### Build Collection 4
 
-After confirmation:
-
 1. Create "Spacing" collection with Mobile, Tablet, Desktop modes.
 2. Component/layout/inset/stack/touch values alias to Collection 1 spacing primitives.
 3. Border radius and border width are hardcoded (they don't follow the spacing scale).
 4. `mcp__Figma__get_screenshot` to verify.
 
-Ask:
-> "Collection 4 — Spacing is built. Do the spacing values feel right for your product density? Any missing roles (grid gutters, column count variables)? Next up is Collection 5 — Elevation."
+Ask: "Collection 4 — Spacing is built. Do the spacing values feel right for your product density? Any missing roles (grid gutters, column count variables)? Next up is Collection 5 — Elevation."
 
 ---
 
@@ -716,13 +687,11 @@ Level   offsetY   radius   ambient-radius   color
 
 All `offsetX = 0`. All `spread = 0` (no `clipsContent` requirement).
 
-Shadow colors alias `color/shadow/key` and `color/shadow/ambient` from Collection 2 — so elevation shadows automatically shift in dark mode.
+Shadow colors alias `color/shadow/key` and `color/shadow/ambient` from Collection 2 — elevation shadows automatically shift in dark mode.
 
 ### Build Collection 5
 
-After confirmation:
-
-1. The FLOAT shadow primitive variables (`shadow/*/offset-y`, `shadow/*/radius`, `shadow/ambient/*/radius`) were already created as part of Collection 1 (1A-iii). Verify they exist before proceeding.
+1. The FLOAT shadow primitive variables (`shadow/*/offset-y`, `shadow/*/radius`, `shadow/ambient/*/radius`) were created as part of Collection 1 (1A-iii). Verify they exist before proceeding.
 2. The COLOR shadow aliases (`color/shadow/key`, `color/shadow/ambient`) were created in Collection 2. Resolve their variable IDs.
 3. Create **Figma Effect Styles** (one per level) via `use_figma`:
 
@@ -795,14 +764,11 @@ const report = styles.filter(s => s.name.startsWith('elevation/')).map(s => ({
 console.log(JSON.stringify(report, null, 2));
 ```
 
-Ask:
-> "Collection 5 — Elevation is built. 6 Effect Styles created with `offsetY`, `radius`, and `color` bound to variables. Apply elevation styles to components via `effectStyleId`. Shadow color shifts automatically in dark mode via `color/shadow/key` / `color/shadow/ambient`. Does the shadow scale feel right? Any adjustments?"
+Ask: "Collection 5 — Elevation is built. 6 Effect Styles created with `offsetY`, `radius`, and `color` bound to variables. Apply elevation styles to components via `effectStyleId`. Shadow color shifts automatically in dark mode via `color/shadow/key` / `color/shadow/ambient`. Does the shadow scale feel right? Any adjustments?"
 
 ---
 
 ## Post-Setup Checklist
-
-Once all 4 collections are confirmed, output:
 
 ```
 ✅ Design System Bootstrap Checklist — [Project Name]
@@ -842,15 +808,13 @@ NEXT (separate work — not in this skill)
 
 ## Optional: Token Showcase
 
-After the checklist, offer:
-
-> "Want me to build a visual token showcase in Figma? It creates a reference frame with your color scales, typography scale, and spacing scale — all bound to your variables, using your own design system. You can skip this."
+Ask: "Want me to build a visual token showcase in Figma? It creates a reference frame with your color scales, typography scale, and spacing scale — all bound to your variables. You can skip this."
 
 If yes:
 
 ### Showcase — ground rule
 
-> **Zero hardcoded values.** Every fill, gap, border width, corner radius, and typography property in the showcase must be bound to a variable. This is a visual testing surface — if a variable changes, the showcase must reflect it immediately. Exceptions (structural sizes like swatch dimensions 56×56 or bar height 24) must be explicitly noted inline.
+**Zero hardcoded values.** Every fill, gap, border width, corner radius, and typography property in the showcase must be bound to a variable. Exceptions (structural sizes like swatch dimensions 56×56 or bar height 24) must be explicitly noted inline.
 
 ### Showcase setup
 
@@ -860,7 +824,7 @@ If yes:
 **The outer frame uses the design system:**
 - Background fill: bound to `color/bg/default` semantic variable via `setBoundVariableForPaint`
 - Vertical gap (`itemSpacing`): bound to `space/layout/md` via `frame.setBoundVariable('itemSpacing', var)`
-- Section padding: `paddingTop/Bottom/Left/Right` each bound to `space/layout/sm` via `frame.setBoundVariable('paddingTop', var)` etc.
+- Section padding: `paddingTop/Bottom/Left/Right` each bound to `space/layout/sm`
 - Section header labels: `type/headline/sm` text style via `textNode.textStyleId`
 - Step/role/token name labels: `type/label/md` text style
 
@@ -936,7 +900,7 @@ fgSwatch.setBoundVariableForPaint(fgSwatch.fills[0], 'color', fgSemanticVar);
 // Pair labels use type/label/md text style
 ```
 
-Note in the skill: switching the showcase frame's Color/Semantics mode (Light ↔ Dark) updates all semantic swatches live — this is the visual test the showcase is designed for.
+Switching the showcase frame's Color/Semantics mode (Light ↔ Dark) updates all semantic swatches live — this is the visual test the showcase is designed for.
 
 ### Typography section — use Text Styles
 
@@ -1102,7 +1066,7 @@ Pre-flight component API rules (FILL sizing, appendChild order, async collection
 
 ## Runtime Rules
 
-- **Never skip the intake phase.** A design system built without knowing platform, brand, and scale choices is useless.
+- **Never skip the intake phase.**
 - **Always alias, never hardcode** in Collections 2–4. If you catch yourself writing a hex value in Collection 2+, stop and find the right primitive.
 - **WCAG first, APCA annotated.** WCAG 2.2 AA is the compliance floor. APCA is the forward-looking quality signal. Both belong in your output.
 - **Mobile-first means mobile values are the default.** Tablet and Desktop modes are progressive enhancements.

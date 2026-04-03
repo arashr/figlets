@@ -14,11 +14,9 @@ You are a Figma documentation engineer. Generate a complete spec sheet inside Fi
 
 If $ARGUMENTS contains a component name or Figma URL: locate it.
 
-Otherwise call `mcp__Figma__get_design_context` (no params). If a COMPONENT or COMPONENT_SET is selected, use it.
+Otherwise call `mcp__Figma__get_design_context` (no params). Use the selected COMPONENT or COMPONENT_SET if present. If nothing is selected, ask: "Which component should I document? (name or select it in Figma)"
 
-If nothing is selected, ask: "Which component should I document? (name or select it in Figma)"
-
-Once found, read its structure:
+Read its structure:
 ```javascript
 const comp = figma.currentPage.findOne(n =>
   (n.type === 'COMPONENT' || n.type === 'COMPONENT_SET') && n.name === 'ComponentName');
@@ -38,7 +36,7 @@ return {
 
 ## Step 2 — Read bounding boxes for anatomy
 
-Use `use_figma` to read the **absolute bounding box** of each named child node. This gives real pixel positions for annotation badges — no estimating.
+Use `use_figma` to read the **absolute bounding box** of each named child node for precise annotation badge positions:
 
 ```javascript
 const comp = figma.currentPage.findOne(n =>
@@ -73,7 +71,7 @@ collectElements(target);
 return JSON.stringify({ compW: target.width, compH: target.height, compBounds, elements });
 ```
 
-From the returned elements, select the meaningful ones (skip anonymous wrapper frames, keep named elements that represent distinct UI areas). You will use their `x`, `y`, `w`, `h` to position annotation badges precisely.
+From the returned elements, select meaningful ones (skip anonymous wrapper frames; keep named elements representing distinct UI areas). Use their `x`, `y`, `w`, `h` to position annotation badges.
 
 ---
 
@@ -130,10 +128,7 @@ return JSON.stringify(resolved);
 
 ## Step 4 — Build the spec sheet in Figma
 
-Use `use_figma`. Follow pre-flight rules:
-- `layoutSizingHorizontal = 'FILL'` always AFTER `parent.appendChild()`
-- `textAutoResize = 'HEIGHT'` always AFTER append
-- Fill colors: `{ r, g, b }` only
+Use `use_figma`. Pre-flight rules: `layoutSizingHorizontal = 'FILL'` always AFTER `parent.appendChild()`, `textAutoResize = 'HEIGHT'` always AFTER append, fill colors `{ r, g, b }` only.
 
 ### Find or create Documentation section
 
@@ -207,7 +202,7 @@ inst.layoutSizingHorizontal = 'FILL';
 
 ### Section C — Variant showcase
 
-Show all variants side by side in a horizontally scrolling row. If > 4 variants, show first 4 and note "… and N more".
+All variants side by side. If > 4 variants, show first 4 and note "… and N more".
 
 ```javascript
 const showcaseFrame = figma.createFrame();
@@ -242,14 +237,9 @@ for (const variant of displayVariants) {
 
 ### Section D — Properties table
 
-Striped rows table: PROPERTY | TYPE | DEFAULT VALUE.
-Dark header row (ink-black-soft bg, ink-subtle text). Alternating white/paper-tinted rows.
-
-One row per component property from `comp.componentPropertyDefinitions`.
+Striped rows table: PROPERTY | TYPE | DEFAULT VALUE. Dark header row (ink-black-soft bg, ink-subtle text). Alternating white/paper-tinted rows. One row per component property from `comp.componentPropertyDefinitions`.
 
 ### Section E — Token bindings table
-
-New section — shows exactly which token is bound to which property:
 
 ```javascript
 // Striped table: NODE | PROPERTY | TOKEN
@@ -263,8 +253,7 @@ Resolved value: look up the token's first-mode value (hex for colors, px for flo
 
 ### Section F — Spacing & sizing
 
-Plain text annotations listing all key measurements and their tokens.
-One line per measurement: `Padding: 48px all sides → 2xl token`
+Plain text annotations listing key measurements and their tokens. One line per measurement: `Padding: 48px all sides → 2xl token`
 
 ### Section G — Anatomy
 
@@ -308,9 +297,7 @@ elements.forEach(({ name, x, y, w, h }, idx) => {
 });
 ```
 
-Below the wrapper, a legend table: **#** · **Element** · **Description**
-
-Each description should mention: role, token binding if applicable, text property if applicable.
+Below the wrapper, a legend table: **#** · **Element** · **Description**. Each description should mention: role, token binding if applicable, text property if applicable.
 
 ### Section H — Usage guidelines (Do / Don't)
 
@@ -320,9 +307,7 @@ Two panels (green/red bordered frames) with 1–3 usage rules specific to this c
 
 ## Step 5 — Write local spec file
 
-Write `component-specs/[ComponentName].md` in the project working directory.
-
-This file is spec-oriented and LLM-readable — no framework code, just facts needed to implement correctly in any stack.
+Write `component-specs/[ComponentName].md` in the project working directory. Fill all sections from Steps 1–4 with real values — no placeholders.
 
 ```markdown
 # [ComponentName]
@@ -418,13 +403,11 @@ This file is spec-oriented and LLM-readable — no framework code, just facts ne
 - **Spec Frame:** Documentation · [ComponentName] · Spec
 ```
 
-Fill in all sections from data collected in Steps 1–4. Do not leave placeholders — use real values from the component.
-
 ---
 
 ## Step 6 — Update Figma component description for MCP handover
 
-Prepend a compact machine-readable block to the component's Figma description. This is read by Figma MCP tools and provides instant context for code generation:
+Prepend a compact machine-readable block to the component's Figma description:
 
 ```javascript
 const specBlock = `[SPEC]

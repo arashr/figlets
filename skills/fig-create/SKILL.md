@@ -72,35 +72,7 @@ What would you like to build?
 
 Before writing any component code, scan the source design for values with no exact token match:
 
-```javascript
-// Collect all raw values from the source node
-function collectValues(node, results = { colors: new Set(), floats: new Set() }) {
-  if (node.type === 'INSTANCE') return results;
-
-  if (node.fills) node.fills.forEach(f => {
-    if (f.type === 'SOLID' && !node.boundVariables?.fills?.[0]) {
-      const hex = '#' + [f.color.r, f.color.g, f.color.b]
-        .map(c => Math.round(c*255).toString(16).padStart(2,'0')).join('');
-      results.colors.add(hex);
-    }
-  });
-
-  ['paddingTop','paddingBottom','paddingLeft','paddingRight','itemSpacing',
-   'counterAxisSpacing','fontSize','cornerRadius'].forEach(prop => {
-    const val = node[prop];
-    if (val && typeof val === 'number' && val !== 0 && !node.boundVariables?.[prop]) {
-      results.floats.add(val);
-    }
-  });
-
-  if ('children' in node) node.children.forEach(c => collectValues(c, results));
-  return results;
-}
-
-const src = figma.currentPage.selection[0] || figma.currentPage.children[0];
-const vals = collectValues(src);
-return JSON.stringify({ colors: [...vals.colors], floats: [...vals.floats] });
-```
+Read `~/.claude/skills/fig-create/scripts/collect-values.js` then run via `use_figma`. Returns `{ colors: string[], floats: number[] }`.
 
 Match each value against the variable library:
 
@@ -506,35 +478,7 @@ try { bindNum(set, 'counterAxisSpacing', 'sm'); } catch(e) {}
 
 Then run a **post-build self-audit** and silently fix any remaining violations before showing the screenshot:
 
-```javascript
-function quickAudit(node, violations = []) {
-  if (node.type === 'INSTANCE') return violations;
-  // Strokes with unbound color
-  (node.strokes || []).forEach((s, i) => {
-    if (s.type === 'SOLID' && !node.boundVariables?.strokes?.[i])
-      violations.push({ nodeId: node.id, type: node.type, prop: 'Stroke color', strokeIndex: i,
-        hex: '#'+['r','g','b'].map(c=>Math.round(s.color[c]*255).toString(16).padStart(2,'0')).join('') });
-  });
-  // Stroke weight on stroked nodes
-  if ((node.strokes||[]).length > 0 && node.strokeWeight && !node.boundVariables?.strokeTopWeight && !node.boundVariables?.strokeWeight)
-    violations.push({ nodeId: node.id, type: node.type, prop: 'Stroke weight', value: node.strokeWeight });
-  // Corner radius
-  if (node.type !== 'TEXT' && node.cornerRadius > 0 && !node.boundVariables?.topLeftRadius)
-    violations.push({ nodeId: node.id, type: node.type, prop: 'Corner radius', value: node.cornerRadius });
-  // Spacing
-  if (node.layoutMode && node.layoutMode !== 'NONE') {
-    ['paddingTop','paddingBottom','paddingLeft','paddingRight','itemSpacing','counterAxisSpacing'].forEach(p => {
-      if (node[p] && !node.boundVariables?.[p])
-        violations.push({ nodeId: node.id, type: node.type, prop: p, value: node[p] });
-    });
-  }
-  if ('children' in node) node.children.forEach(c => quickAudit(c, violations));
-  return violations;
-}
-// Run on the full ComponentSet after build, fix silently, report count
-const remaining = quickAudit(set);
-// fix each remaining violation using the same bind helpers before screenshot
-```
+Read `~/.claude/skills/fig-create/scripts/post-build-audit.js` then run via `use_figma` on `set`. Fix each returned violation using the bind helpers.
 
 Report: "Self-audit: N violations auto-fixed after build." Note any that cannot be fixed (no matching token).
 

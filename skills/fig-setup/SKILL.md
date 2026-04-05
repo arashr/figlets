@@ -532,47 +532,9 @@ type/label/sm/tracking        0.02 (all)
 
 ### Create Figma Text Styles (required — do not skip)
 
-After variables are built, create one Figma Text Style per role and bind every property to the corresponding Typography variable. All 15 styles in a single `use_figma` call:
+After variables are built, create one Figma Text Style per role and bind every property to the corresponding Typography variable. Read `~/.claude/skills/fig-setup/scripts/create-text-styles.js` then run via `use_figma`.
 
-```javascript
-const allVars = await figma.variables.getLocalVariablesAsync();
-const findVar = (name) => allVars.find(v => v.name === name);
-
-const roles = [
-  { name: 'type/display/lg',   family: 'sans' },
-  { name: 'type/display/md',   family: 'sans' },
-  { name: 'type/display/sm',   family: 'sans' },
-  { name: 'type/headline/lg',  family: 'sans' },
-  { name: 'type/headline/md',  family: 'sans' },
-  { name: 'type/headline/sm',  family: 'sans' },
-  { name: 'type/title/lg',     family: 'sans' },
-  { name: 'type/title/md',     family: 'sans' },
-  { name: 'type/title/sm',     family: 'sans' },
-  { name: 'type/body/lg',      family: 'sans' },
-  { name: 'type/body/md',      family: 'sans' },
-  { name: 'type/body/sm',      family: 'sans' },
-  { name: 'type/label/lg',     family: 'sans' },
-  { name: 'type/label/md',     family: 'sans' },
-  { name: 'type/label/sm',     family: 'sans' },
-];
-
-for (const role of roles) {
-  const style = figma.createTextStyle();
-  style.name = role.name;
-  const sizeVar    = findVar(`${role.name}/size`);
-  const lhVar      = findVar(`${role.name}/line-height`);
-  const trackVar   = findVar(`${role.name}/tracking`);
-  const weightVar  = findVar(`${role.name}/weight`);
-  const familyVar  = findVar(`type/family/${role.family}`);
-  if (sizeVar)   await style.setBoundVariable('fontSize',      sizeVar);
-  if (lhVar)     await style.setBoundVariable('lineHeight',    lhVar);
-  if (trackVar)  await style.setBoundVariable('letterSpacing', trackVar);
-  if (weightVar) await style.setBoundVariable('fontStyle',     weightVar);
-  if (familyVar) await style.setBoundVariable('fontFamily',    familyVar);
-}
-```
-
-> **Note on fontFamily binding**: `setBoundVariable('fontFamily', var)` binds a String variable to the style's font family — supported in Figma plugin API. If it throws on the user's Figma version, fall back to setting `style.fontName = { family: resolvedFamilyValue, style: 'Regular' }` using the resolved primitive value, and log a warning.
+> **Note on fontFamily binding**: `setBoundVariable('fontFamily', var)` binds a String variable to the style's font family. If it throws on the user's Figma version, fall back to `style.fontName = { family: resolvedFamilyValue, style: 'Regular' }` and log a warning.
 
 4. `mcp__Figma__get_screenshot` — verify the Styles panel shows 15 text styles with variable binding badges on each property.
 
@@ -693,63 +655,9 @@ Shadow colors alias `color/shadow/key` and `color/shadow/ambient` from Collectio
 
 1. The FLOAT shadow primitive variables (`shadow/*/offset-y`, `shadow/*/radius`, `shadow/ambient/*/radius`) were created as part of Collection 1 (1A-iii). Verify they exist before proceeding.
 2. The COLOR shadow aliases (`color/shadow/key`, `color/shadow/ambient`) were created in Collection 2. Resolve their variable IDs.
-3. Create **Figma Effect Styles** (one per level) via `use_figma`:
+3. Read `~/.claude/skills/fig-setup/scripts/create-elevation-styles.js` then run via `use_figma` to create `elevation/0` through `elevation/5` with bound variables.
 
-```javascript
-const allVars = await figma.variables.getLocalVariablesAsync();
-
-// Null-safe binder — if variable not found, returns effect unchanged (prevents silent unbind)
-function bindEffectField(eff, field, varName) {
-  const v = allVars.find(v => v.name === varName);
-  if (!v) { console.warn(`bindEffectField: variable not found: ${varName}`); return eff; }
-  return figma.variables.setBoundVariableForEffect(eff, field, v);
-}
-
-// Level 0 — no shadow
-const style0 = figma.createEffectStyle();
-style0.name = 'elevation/0';
-style0.effects = [];
-
-// Levels 1–5
-const levels = [
-  { level: 1, oy: 'shadow/1/offset-y', r: 'shadow/1/radius', ambient: null },
-  { level: 2, oy: 'shadow/2/offset-y', r: 'shadow/2/radius', ambient: 'shadow/ambient/2/radius' },
-  { level: 3, oy: 'shadow/3/offset-y', r: 'shadow/3/radius', ambient: 'shadow/ambient/3/radius' },
-  { level: 4, oy: 'shadow/4/offset-y', r: 'shadow/4/radius', ambient: 'shadow/ambient/4/radius' },
-  { level: 5, oy: 'shadow/5/offset-y', r: 'shadow/5/radius', ambient: 'shadow/ambient/5/radius' },
-];
-
-for (const def of levels) {
-  const style = figma.createEffectStyle();
-  style.name = `elevation/${def.level}`;
-
-  // Build key shadow — chain bindEffectField calls sequentially
-  // Each call's return value feeds the next call (unintended-unbind prevention)
-  // Bind color via the semantic variable — when the frame's mode switches Light ↔ Dark,
-  // Figma re-evaluates the binding and the shadow color updates automatically.
-  let keyEff = { type: 'DROP_SHADOW', color: {r:0,g:0,b:0,a:0.2},
-                 offset: {x:0, y:1}, radius: 2, spread: 0,
-                 visible: true, blendMode: 'NORMAL' };
-  keyEff = bindEffectField(keyEff, 'offsetY', def.oy);
-  keyEff = bindEffectField(keyEff, 'radius',  def.r);
-  keyEff = bindEffectField(keyEff, 'color',   'color/shadow/key');
-
-  const effects = [keyEff];
-
-  if (def.ambient) {
-    let ambEff = { type: 'DROP_SHADOW', color: {r:0,g:0,b:0,a:0.08},
-                   offset: {x:0, y:0}, radius: 4, spread: 0,
-                   visible: true, blendMode: 'NORMAL' };
-    ambEff = bindEffectField(ambEff, 'radius', def.ambient);
-    ambEff = bindEffectField(ambEff, 'color',  'color/shadow/ambient');
-    effects.push(ambEff);
-  }
-
-  style.effects = effects;
-}
-```
-
-> ⚠️ **Binding order matters**: each `setBoundVariableForEffect` call takes the *previous call's return value* as its first argument. Never pass the original `keyEff` object to a second binding — the first binding would be lost (the unintended-unbind bug). Use `bindEffectField` above which wraps this safely.
+> ⚠️ **Binding order matters**: each `setBoundVariableForEffect` call takes the *previous call's return value* as input. `bindEffectField` in the script wraps this safely — do not modify the call chain.
 
 4. Verify: `mcp__Figma__get_screenshot` — the Styles panel should show 6 Effect Styles (`elevation/0` through `elevation/5`) with variable binding badges on `offsetY`, `radius`, and `color`.
 

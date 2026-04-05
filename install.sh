@@ -6,23 +6,36 @@ SKILLS_DIR="${HOME}/.claude/skills"
 SKILLS=("fig-setup" "fig-create" "fig-qa" "fig-document")
 RAW="https://raw.githubusercontent.com/${REPO}/main/skills"
 
+# Scripts bundled with each skill
+declare -A SCRIPTS
+SCRIPTS["fig-setup"]="create-text-styles.js create-elevation-styles.js"
+SCRIPTS["fig-create"]="collect-values.js post-build-audit.js"
+SCRIPTS["fig-qa"]="audit-traverse.js fix-violation.js"
+SCRIPTS["fig-document"]="read-bounds.js read-bindings.js"
+
 echo ""
 echo "Installing figlets..."
 echo ""
 
-# Create skill directories and download SKILL.md files
+# Create skill directories (including scripts subdirs)
 for skill in "${SKILLS[@]}"; do
-  mkdir -p "${SKILLS_DIR}/${skill}"
+  mkdir -p "${SKILLS_DIR}/${skill}/scripts"
 done
 
 if command -v curl &>/dev/null; then
   for skill in "${SKILLS[@]}"; do
     curl -fsSL "${RAW}/${skill}/SKILL.md" -o "${SKILLS_DIR}/${skill}/SKILL.md"
+    for script in ${SCRIPTS[$skill]}; do
+      curl -fsSL "${RAW}/${skill}/scripts/${script}" -o "${SKILLS_DIR}/${skill}/scripts/${script}"
+    done
     echo "  ✓ ${skill}"
   done
 elif command -v wget &>/dev/null; then
   for skill in "${SKILLS[@]}"; do
     wget -qO "${SKILLS_DIR}/${skill}/SKILL.md" "${RAW}/${skill}/SKILL.md"
+    for script in ${SCRIPTS[$skill]}; do
+      wget -qO "${SKILLS_DIR}/${skill}/scripts/${script}" "${RAW}/${skill}/scripts/${script}"
+    done
     echo "  ✓ ${skill}"
   done
 else

@@ -26,7 +26,7 @@ Call `mcp__Figma__get_variable_defs`. If none returned: ask for a library file U
 
 ## Step 3 — Traverse and inspect nodes
 
-Use `use_figma` with the audit script. Skip INSTANCE nodes — master components carry the bindings.
+Read `~/.claude/skills/fig-qa/scripts/audit-traverse.js` then run via `use_figma`. Skip INSTANCE nodes — master components carry the bindings.
 
 **Correct boundVariables field names:**
 - Fills: `node.boundVariables?.fills?.[i]` (NOT `.fills?.[i]?.color`)
@@ -36,85 +36,7 @@ Use `use_figma` with the audit script. Skip INSTANCE nodes — master components
 - Corner radius: `node.boundVariables?.topLeftRadius` (NOT `cornerRadius`)
 - Spacing/font size: `node.boundVariables?.[prop]`
 
-```javascript
-function auditNode(node) {
-  if (node.type === 'INSTANCE') return [];
-  const violations = [];
-  const name = node.name;
-
-  // Fills
-  if (node.fills && Array.isArray(node.fills)) {
-    node.fills.forEach((fill, i) => {
-      if (fill.type === 'SOLID' && !node.boundVariables?.fills?.[i]) {
-        const r = Math.round(fill.color.r * 255);
-        const g = Math.round(fill.color.g * 255);
-        const b = Math.round(fill.color.b * 255);
-        violations.push({ nodeId: node.id, nodeName: name, nodeType: node.type, fillIndex: i,
-          property: 'Fill color', rawValue: `rgb(${r},${g},${b})`, type: 'color' });
-      }
-    });
-  }
-
-  // Strokes
-  if (node.strokes && Array.isArray(node.strokes)) {
-    node.strokes.forEach((s, i) => {
-      if (s.type === 'SOLID' && !node.boundVariables?.strokes?.[i]) {
-        const r = Math.round(s.color.r * 255);
-        const g = Math.round(s.color.g * 255);
-        const b = Math.round(s.color.b * 255);
-        violations.push({ nodeId: node.id, nodeName: name, nodeType: node.type, strokeIndex: i,
-          property: 'Stroke color', rawValue: `rgb(${r},${g},${b})`, type: 'color' });
-      }
-    });
-  }
-
-  // Stroke weight — only flag if node actually has strokes
-  if (node.strokes?.length > 0 && node.strokeWeight && node.strokeWeight !== 0) {
-    const swBound = node.type === 'TEXT'
-      ? node.boundVariables?.strokeWeight
-      : node.boundVariables?.strokeTopWeight;
-    if (!swBound) violations.push({ nodeId: node.id, nodeName: name, nodeType: node.type,
-      property: 'Stroke weight', rawValue: `${node.strokeWeight}px`, type: 'border' });
-  }
-
-  // Corner radius
-  if (node.type !== 'TEXT' && typeof node.cornerRadius === 'number' && node.cornerRadius !== 0) {
-    if (!node.boundVariables?.topLeftRadius) {
-      violations.push({ nodeId: node.id, nodeName: name, nodeType: node.type,
-        property: 'Corner radius', rawValue: `${node.cornerRadius}px`, type: 'border' });
-    }
-  }
-
-  // Auto-layout spacing
-  if (node.layoutMode && node.layoutMode !== 'NONE') {
-    ['paddingTop','paddingBottom','paddingLeft','paddingRight','itemSpacing','counterAxisSpacing'].forEach(prop => {
-      if (node[prop] && node[prop] !== 0 && !node.boundVariables?.[prop]) {
-        violations.push({ nodeId: node.id, nodeName: name, nodeType: node.type,
-          property: prop, rawValue: `${node[prop]}px`, type: 'spacing' });
-      }
-    });
-  }
-
-  // Font size
-  if (node.type === 'TEXT' && node.fontSize !== figma.mixed && !node.boundVariables?.fontSize) {
-    violations.push({ nodeId: node.id, nodeName: name, nodeType: node.type,
-      property: 'Font size', rawValue: `${node.fontSize}px`, type: 'typography' });
-  }
-
-  if ('children' in node) node.children.forEach(c => violations.push(...auditNode(c)));
-  return violations;
-}
-
-const scope = figma.currentPage.selection.length > 0
-  ? figma.currentPage.selection
-  : figma.currentPage.children;
-
-const allViolations = [];
-scope.forEach(node => allViolations.push(...auditNode(node)));
-return JSON.stringify(allViolations);
-```
-
-**Note on false positives:** `strokeWeight = 1` on nodes with `strokes = []` is Figma's default — not a violation. The audit script already guards this with `node.strokes?.length > 0`.
+**Note on false positives:** `strokeWeight = 1` on nodes with `strokes = []` is Figma's default — not a violation. The script already guards this with `node.strokes?.length > 0`.
 
 ---
 
@@ -164,38 +86,7 @@ Fix this? (y / n / skip all)
 
 ### Fix script pattern
 
-```javascript
-const allVars = await figma.variables.getLocalVariablesAsync();
-const v = allVars.find(x => x.name === suggestedVarName);
-if (!v) return 'VAR_NOT_FOUND';
-const node = await figma.getNodeByIdAsync(nodeId);
-if (!node) return 'NODE_NOT_FOUND';
-
-if (property === 'Fill color') {
-  const fills = JSON.parse(JSON.stringify(node.fills));
-  fills[fillIndex] = figma.variables.setBoundVariableForPaint(fills[fillIndex], 'color', v);
-  node.fills = fills;
-}
-if (property === 'Stroke color') {
-  const strokes = JSON.parse(JSON.stringify(node.strokes));
-  strokes[strokeIndex] = figma.variables.setBoundVariableForPaint(strokes[strokeIndex], 'color', v);
-  node.strokes = strokes;
-}
-if (property === 'Stroke weight') {
-  if (node.type === 'TEXT') { node.setBoundVariable('strokeWeight', v); }
-  else { ['strokeTopWeight','strokeBottomWeight','strokeLeftWeight','strokeRightWeight']
-    .forEach(p => node.setBoundVariable(p, v)); }
-}
-if (property === 'Corner radius') {
-  ['topLeftRadius','topRightRadius','bottomLeftRadius','bottomRightRadius']
-    .forEach(p => node.setBoundVariable(p, v));
-}
-if (['paddingTop','paddingBottom','paddingLeft','paddingRight','itemSpacing','counterAxisSpacing'].includes(property)) {
-  node.setBoundVariable(property, v);
-}
-if (property === 'Font size') { node.setBoundVariable('fontSize', v); }
-return 'OK';
-```
+Read `~/.claude/skills/fig-qa/scripts/fix-violation.js`, substitute `nodeId`, `property`, `fillIndex`, `strokeIndex`, and `suggestedVarName` from the violation record, then run via `use_figma`.
 
 ---
 

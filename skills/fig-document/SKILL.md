@@ -36,40 +36,7 @@ return {
 
 ## Step 2 — Read bounding boxes for anatomy
 
-Use `use_figma` to read the **absolute bounding box** of each named child node for precise annotation badge positions:
-
-```javascript
-const comp = figma.currentPage.findOne(n =>
-  (n.type === 'COMPONENT' || n.type === 'COMPONENT_SET') && n.name === 'ComponentName');
-
-// For ComponentSet, use the first (default) variant
-const target = comp.type === 'COMPONENT_SET'
-  ? comp.children.find(c => c.name.includes('Default') || c.name.includes('Full')) || comp.children[0]
-  : comp;
-
-const compBounds = target.absoluteBoundingBox;
-
-// Collect all named, non-instance leaf areas
-const elements = [];
-function collectElements(node, depth = 0) {
-  if (!node.absoluteBoundingBox) return;
-  const nb = node.absoluteBoundingBox;
-  elements.push({
-    name: node.name,
-    type: node.type,
-    depth,
-    x: Math.round(nb.x - compBounds.x),
-    y: Math.round(nb.y - compBounds.y),
-    w: Math.round(nb.width),
-    h: Math.round(nb.height),
-  });
-  if ('children' in node && node.type !== 'INSTANCE') {
-    node.children.forEach(c => collectElements(c, depth + 1));
-  }
-}
-collectElements(target);
-return JSON.stringify({ compW: target.width, compH: target.height, compBounds, elements });
-```
+Read `~/.claude/skills/fig-document/scripts/read-bounds.js`, substitute `'ComponentName'` with the actual component name, then run via `use_figma`. Returns `{ compW, compH, compBounds, elements[] }`.
 
 From the returned elements, select meaningful ones (skip anonymous wrapper frames; keep named elements representing distinct UI areas). Use their `x`, `y`, `w`, `h` to position annotation badges.
 
@@ -79,50 +46,7 @@ From the returned elements, select meaningful ones (skip anonymous wrapper frame
 
 Read which design tokens are bound to which properties on the default variant:
 
-```javascript
-const target = /* default variant from Step 2 */;
-
-function collectBindings(node, bindings = []) {
-  if (node.type === 'INSTANCE') return bindings;
-
-  async function getVarName(id) {
-    const v = await figma.variables.getVariableByIdAsync(id);
-    return v ? v.name : id;
-  }
-
-  const bv = node.boundVariables || {};
-  const checks = [
-    ['fills',    'Fill'],
-    ['strokes',  'Stroke'],
-    ['paddingTop', 'paddingTop'], ['paddingBottom','paddingBottom'],
-    ['paddingLeft','paddingLeft'], ['paddingRight','paddingRight'],
-    ['itemSpacing','itemSpacing'], ['counterAxisSpacing','counterAxisSpacing'],
-    ['fontSize','fontSize'], ['topLeftRadius','cornerRadius'],
-    ['strokeTopWeight','strokeWeight'],
-  ];
-
-  for (const [key, label] of checks) {
-    if (bv[key]) {
-      const entry = Array.isArray(bv[key]) ? bv[key][0] : bv[key];
-      if (entry?.id) {
-        bindings.push({ node: node.name, property: label, varId: entry.id });
-      }
-    }
-  }
-
-  if ('children' in node) node.children.forEach(c => collectBindings(c, bindings));
-  return bindings;
-}
-
-const raw = collectBindings(target);
-// Resolve variable names
-const resolved = [];
-for (const b of raw) {
-  const v = await figma.variables.getVariableByIdAsync(b.varId);
-  resolved.push({ node: b.node, property: b.property, token: v ? v.name : b.varId });
-}
-return JSON.stringify(resolved);
-```
+Read `~/.claude/skills/fig-document/scripts/read-bindings.js`, set `target` to the default variant from Step 2, then run via `use_figma`. Returns `[{ node, property, token }]`.
 
 ---
 

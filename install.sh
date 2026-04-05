@@ -8,10 +8,13 @@ RAW="https://raw.githubusercontent.com/${REPO}/main/skills"
 
 # Scripts bundled with each skill
 declare -A SCRIPTS
-SCRIPTS["fig-setup"]="create-text-styles.js create-elevation-styles.js"
-SCRIPTS["fig-create"]="collect-values.js post-build-audit.js"
+SCRIPTS["fig-setup"]="create-text-styles.js create-elevation-styles.js showcase-color.js showcase-typography.js showcase-spacing.js showcase-scrim.js showcase-elevation.js"
+SCRIPTS["fig-create"]="collect-values.js post-build-audit.js effect-preservation.js variant-wiring.js type-collection.js component-lifecycle.js node-patterns.js"
 SCRIPTS["fig-qa"]="audit-traverse.js fix-violation.js"
-SCRIPTS["fig-document"]="read-bounds.js read-bindings.js"
+SCRIPTS["fig-document"]="read-bounds.js read-bindings.js find-component.js build-doc-frame.js update-description.js"
+
+# Shared scripts
+SHARED_SCRIPTS="bind-helpers.js component-utils.js section-utils.js"
 
 echo ""
 echo "Installing figlets..."
@@ -22,6 +25,9 @@ for skill in "${SKILLS[@]}"; do
   mkdir -p "${SKILLS_DIR}/${skill}/scripts"
 done
 
+# Create shared directory
+mkdir -p "${SKILLS_DIR}/shared"
+
 if command -v curl &>/dev/null; then
   for skill in "${SKILLS[@]}"; do
     curl -fsSL "${RAW}/${skill}/SKILL.md" -o "${SKILLS_DIR}/${skill}/SKILL.md"
@@ -30,6 +36,10 @@ if command -v curl &>/dev/null; then
     done
     echo "  ✓ ${skill}"
   done
+  for script in ${SHARED_SCRIPTS}; do
+    curl -fsSL "${RAW}/shared/${script}" -o "${SKILLS_DIR}/shared/${script}"
+  done
+  echo "  ✓ shared"
 elif command -v wget &>/dev/null; then
   for skill in "${SKILLS[@]}"; do
     wget -qO "${SKILLS_DIR}/${skill}/SKILL.md" "${RAW}/${skill}/SKILL.md"
@@ -38,6 +48,10 @@ elif command -v wget &>/dev/null; then
     done
     echo "  ✓ ${skill}"
   done
+  for script in ${SHARED_SCRIPTS}; do
+    wget -qO "${SKILLS_DIR}/shared/${script}" "${RAW}/shared/${script}"
+  done
+  echo "  ✓ shared"
 else
   echo "Error: curl or wget is required to install figlets." >&2
   exit 1

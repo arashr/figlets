@@ -661,16 +661,7 @@ Shadow colors alias `color/shadow/key` and `color/shadow/ambient` from Collectio
 
 4. Verify: `mcp__Figma__get_screenshot` — the Styles panel should show 6 Effect Styles (`elevation/0` through `elevation/5`) with variable binding badges on `offsetY`, `radius`, and `color`.
 
-5. Read back to confirm bindings were applied:
-```javascript
-const styles = figma.getLocalEffectStyles();
-const report = styles.filter(s => s.name.startsWith('elevation/')).map(s => ({
-  name: s.name,
-  effectCount: s.effects.length,
-  boundVars: s.effects.map(e => Object.keys(e.boundVariables || {}))
-}));
-console.log(JSON.stringify(report, null, 2));
-```
+5. Read back to confirm bindings were applied: run `use_figma` with a short snippet that calls `figma.getLocalEffectStyles()`, filters by `s.name.startsWith('elevation/')`, and returns `{ name, effectCount, boundVars }` for each style.
 
 Ask: "Collection 5 — Elevation is built. 6 Effect Styles created with `offsetY`, `radius`, and `color` bound to variables. Apply elevation styles to components via `effectStyleId`. Shadow color shifts automatically in dark mode via `color/shadow/key` / `color/shadow/ambient`. Does the shadow scale feel right? Any adjustments?"
 
@@ -740,47 +731,7 @@ If yes:
 
 Each color ramp = one horizontal auto-layout row. Each step = a vertical swatch column:
 
-```javascript
-// For each primitive color variable (e.g. color/[hue]/500):
-const swatch = figma.createFrame();
-swatch.resize(56, 56);  // structural size — documented exception
-const paint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-swatch.fills = [paint];
-swatch.setBoundVariableForPaint(swatch.fills[0], 'color', primitiveVar);
-
-// Resolve for contrast calculation (done at build time)
-const resolvedVal = primitiveVar.resolveForConsumer(swatch).value; // {r,g,b}
-const hex = rgbToHex(resolvedVal);
-const wcagVsWhite = computeWCAGRatio(hex, '#FFFFFF');
-const wcagVsBlack = computeWCAGRatio(hex, '#000000');
-
-// Step label
-const stepLabel = figma.createText();
-stepLabel.textStyleId = labelMdStyle.id;
-stepLabel.characters = stepName;   // e.g. '/500'
-
-// Hex label
-const hexLabel = figma.createText();
-hexLabel.textStyleId = labelSmStyle.id;
-hexLabel.characters = hex;
-
-// Contrast badge vs white
-const badgeWhite = figma.createFrame();
-const passWhite = wcagVsWhite >= 4.5;
-const whiteBasePaint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-badgeWhite.fills = [whiteBasePaint];
-badgeWhite.setBoundVariableForPaint(badgeWhite.fills[0], 'color',
-  passWhite ? successSubtleVar : dangerSubtleVar);
-const badgeWhiteText = figma.createText();
-badgeWhiteText.textStyleId = labelSmStyle.id;
-const whiteTextPaint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-badgeWhiteText.fills = [whiteTextPaint];
-badgeWhiteText.setBoundVariableForPaint(badgeWhiteText.fills[0], 'color',
-  passWhite ? textSuccessVar : textDangerVar);
-badgeWhiteText.characters = `⬜ ${wcagVsWhite.toFixed(1)}:1 ${passWhite ? '✓ AA' : '✗'}`;
-
-// Same pattern for badge vs black (⬛)
-```
+See `~/.claude/skills/fig-setup/scripts/showcase-color.js` — Section A pattern.
 
 WCAG 2.2 AA = 4.5:1 normal text, 3:1 large text / icons.
 
@@ -788,149 +739,37 @@ WCAG 2.2 AA = 4.5:1 normal text, 3:1 large text / icons.
 
 Shows the actual bg/text pairings the design system enforces. Each row = one semantic pair.
 
-```javascript
-// For each pair: { bg: 'color/bg/default', fg: 'color/text/default', label: 'default' }, etc.
-// Show pairings for: default, brand, danger, success, warning, info
-
-const bgSwatch = figma.createFrame();
-bgSwatch.resize(56, 56);  // structural — documented exception
-const bgPaint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-bgSwatch.fills = [bgPaint];
-bgSwatch.setBoundVariableForPaint(bgSwatch.fills[0], 'color', bgSemanticVar);
-
-const fgSwatch = figma.createFrame();
-fgSwatch.resize(56, 56);
-const fgPaint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-fgSwatch.fills = [fgPaint];
-fgSwatch.setBoundVariableForPaint(fgSwatch.fills[0], 'color', fgSemanticVar);
-
-// Contrast badge — same pattern as section A
-// Pair labels use type/label/md text style
-```
+See `~/.claude/skills/fig-setup/scripts/showcase-color.js` — Section B pattern.
 
 Switching the showcase frame's Color/Semantics mode (Light ↔ Dark) updates all semantic swatches live — this is the visual test the showcase is designed for.
 
 ### Typography section — use Text Styles
 
-```javascript
-// For each of the 15 text styles:
-const sampleText = figma.createText();
-sampleText.textStyleId = textStyle.id;    // applies all variable-bound properties
-sampleText.characters = `${styleName} — The quick brown fox jumps over the lazy dog`;
-// text fill bound to color/text/default semantic variable:
-const samplePaint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-sampleText.fills = [samplePaint];
-sampleText.setBoundVariableForPaint(sampleText.fills[0], 'color', textDefaultVar);
-
-// Metadata label — type/label/sm style
-const metaLabel = figma.createText();
-metaLabel.textStyleId = labelSmStyle.id;
-metaLabel.characters = `${styleName} · [size]px / w[weight] / lh[lineHeight]px`;
-const metaPaint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-metaLabel.fills = [metaPaint];
-metaLabel.setBoundVariableForPaint(metaLabel.fills[0], 'color', textSubtleVar);
-```
+See `~/.claude/skills/fig-setup/scripts/showcase-typography.js`.
 
 The text style handles all font property bindings. Text fill must still be explicitly bound to a semantic color variable.
 
 ### Spacing section — widths bound to variables
 
-```javascript
-// For each space/component/* and space/layout/* variable:
-const bar = figma.createRectangle();
-bar.name = spacingVar.name;
-bar.resize(1, 24);                              // height 24 = structural, documented exception
-bar.setBoundVariable('width', spacingVar);      // width = spacing value, responds to variable
-const barPaint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-bar.fills = [barPaint];
-bar.setBoundVariableForPaint(bar.fills[0], 'color', bgBrandVar);  // fill = color/bg/brand
-
-const label = figma.createText();
-label.textStyleId = labelMdStyle.id;
-const resolvedPx = spacingVar.resolveForConsumer(bar).value;
-label.characters = `${spacingVar.name}: ${resolvedPx}px`;
-const labelPaint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-label.fills = [labelPaint];
-label.setBoundVariableForPaint(label.fills[0], 'color', textDefaultVar);
-```
+See `~/.claude/skills/fig-setup/scripts/showcase-spacing.js` — spacing bars pattern.
 
 ### Border radius section
 
 Each `space/radius/*` token = one rounded rectangle:
 
-```javascript
-// Order: none, xs, sm, md, lg, xl, 2xl, full
-// For each space/radius/* variable:
-const rect = figma.createRectangle();
-rect.resize(64, 64);  // structural — documented exception
-rect.setBoundVariable('cornerRadius', radiusVar);  // corner radius = the variable value
-const rectPaint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-rect.fills = [rectPaint];
-rect.setBoundVariableForPaint(rect.fills[0], 'color', bgBrandVar);
-
-const label = figma.createText();
-label.textStyleId = labelMdStyle.id;
-const resolvedPx = radiusVar.resolveForConsumer(rect).value;
-label.characters = `${radiusVar.name}: ${resolvedPx}px`;
-const labelPaint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-label.fills = [labelPaint];
-label.setBoundVariableForPaint(label.fills[0], 'color', textDefaultVar);
-```
+See `~/.claude/skills/fig-setup/scripts/showcase-spacing.js` — border radius pattern.
 
 ### Border width section
 
 Each `space/border/*` token = one outlined rectangle with no fill:
 
-```javascript
-// Order: hairline, default, medium, thick
-// For each space/border/* variable:
-const rect = figma.createRectangle();
-rect.resize(64, 32);  // structural — documented exception
-rect.fills = [];      // no fill
-rect.setBoundVariable('strokeWeight', borderVar);  // stroke weight = the variable value
-rect.strokeAlign = 'INSIDE';
-const strokePaint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-rect.strokes = [strokePaint];
-rect.setBoundVariableForPaint(rect.strokes[0], 'color', borderDefaultVar);  // color/border/default
-
-const label = figma.createText();
-label.textStyleId = labelMdStyle.id;
-const resolvedPx = borderVar.resolveForConsumer(rect).value;
-label.characters = `${borderVar.name}: ${resolvedPx}px`;
-const labelPaint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-label.fills = [labelPaint];
-label.setBoundVariableForPaint(label.fills[0], 'color', textDefaultVar);
-```
+See `~/.claude/skills/fig-setup/scripts/showcase-spacing.js` — border width pattern.
 
 ### Scrim section
 
 Shows each semantic scrim token as a before/after demo: content bg alone vs. content bg + scrim layered on top. Uses multiple fills on a single frame (Figma stacks fills top-to-bottom).
 
-```javascript
-// For each scrim semantic variable: overlay, hover, pressed, disabled, selected
-const demoFrame = figma.createFrame();
-demoFrame.resize(120, 56);  // structural — documented exception
-demoFrame.layoutMode = 'NONE';
-
-// Base fill — content background
-const basePaint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-// Scrim fill — layered on top
-const scrimPaint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-
-const boundBase  = figma.variables.setBoundVariableForPaint(basePaint,  'color', bgDefaultVar);
-const boundScrim = figma.variables.setBoundVariableForPaint(scrimPaint, 'color', scrimSemanticVar);
-
-// Figma fills: index 0 = BOTTOM, last index = TOP (rendered over lower fills)
-demoFrame.fills = [boundBase, boundScrim];  // base at bottom, scrim on top
-
-// Label — type/label/md text style
-const label = figma.createText();
-label.textStyleId = labelMdStyle.id;
-label.characters = scrimVar.name;  // e.g. 'color/scrim/hover'
-const labelPaint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-label.fills = [labelPaint];
-label.setBoundVariableForPaint(label.fills[0], 'color', textDefaultVar);
-```
+See `~/.claude/skills/fig-setup/scripts/showcase-scrim.js`.
 
 Switching Light ↔ Dark mode on the frame changes the scrim value (e.g. hover switches from `scrim/black/8` to `scrim/white/8`) — this is the live test.
 
@@ -938,29 +777,7 @@ Switching Light ↔ Dark mode on the frame changes the scrim value (e.g. hover s
 
 One card per elevation level, each with the corresponding Effect Style applied.
 
-```javascript
-// For each level 0–5:
-const card = figma.createFrame();
-card.resize(120, 80);  // structural — documented exception
-card.cornerRadius = 8; // bind to space/radius/md if available: card.setBoundVariable('cornerRadius', radiusMdVar)
-card.clipsContent = false;  // effects must show OUTSIDE the card boundary
-
-const cardPaint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-card.fills = [cardPaint];
-card.setBoundVariableForPaint(card.fills[0], 'color', bgDefaultVar);
-
-// Apply the Effect Style by name
-const effectStyle = figma.getLocalEffectStyles().find(s => s.name === `elevation/${level}`);
-if (effectStyle) card.effectStyleId = effectStyle.id;
-
-// Label — type/label/md text style
-const label = figma.createText();
-label.textStyleId = labelMdStyle.id;
-label.characters = `elevation/${level}`;
-const labelPaint = { type: 'SOLID', color: { r: 0, g: 0, b: 0 } };
-label.fills = [labelPaint];
-label.setBoundVariableForPaint(label.fills[0], 'color', textDefaultVar);
-```
+See `~/.claude/skills/fig-setup/scripts/showcase-elevation.js`.
 
 Switching Light ↔ Dark mode changes the shadow color via `color/shadow/key` and `color/shadow/ambient` — dark mode uses white-based scrims (`scrim/white/20` / `scrim/white/8`) to create a subtle light glow effect. Black shadows on dark surfaces have near-zero contrast and are invisible; white shadows simulate a light source lifting the surface above the canvas.
 

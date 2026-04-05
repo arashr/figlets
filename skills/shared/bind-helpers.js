@@ -1,0 +1,53 @@
+// Shared variable binding helpers. Prepend to any use_figma script that needs variable binding.
+
+const allVars = await figma.variables.getLocalVariablesAsync();
+const varByName = {};
+allVars.forEach(v => { varByName[v.name] = v; });
+
+function bindFill(node, varName) {
+  const v = varByName[varName];
+  if (!v || !node.fills?.length) return;
+  const fills = JSON.parse(JSON.stringify(node.fills));
+  fills[0] = figma.variables.setBoundVariableForPaint(fills[0], 'color', v);
+  node.fills = fills;
+}
+
+function bindStroke(node, varName) {
+  const v = varByName[varName];
+  if (!v || !node.strokes?.length) return;
+  const strokes = JSON.parse(JSON.stringify(node.strokes));
+  strokes[0] = figma.variables.setBoundVariableForPaint(strokes[0], 'color', v);
+  node.strokes = strokes;
+}
+
+function bindNum(node, prop, varName) {
+  const v = varByName[varName]; if (!v) return;
+  node.setBoundVariable(prop, v);
+}
+
+function bindRadius(node, varName) {
+  const v = varByName[varName]; if (!v) return;
+  ['topLeftRadius','topRightRadius','bottomLeftRadius','bottomRightRadius']
+    .forEach(p => node.setBoundVariable(p, v));
+}
+
+function bindEffect(node, effectIndex, field, varName) {
+  // field: 'color' | 'radius' | 'spread' | 'offsetX' | 'offsetY'
+  // Bind each field in a separate call — multiple bindings on the same effect
+  // must be chained (each call returns the updated effect; use that as input to next call)
+  const v = varByName[varName]; if (!v) return false;
+  const clone = node.effects.map(e => ({ ...e }));
+  clone[effectIndex] = figma.variables.setBoundVariableForEffect(clone[effectIndex], field, v);
+  node.effects = clone;
+  return true;
+}
+
+function bindStrokeWeight(node, varName) {
+  const v = varByName[varName]; if (!v) return;
+  if (node.type === 'TEXT') {
+    node.setBoundVariable('strokeWeight', v);
+  } else {
+    ['strokeTopWeight','strokeBottomWeight','strokeLeftWeight','strokeRightWeight']
+      .forEach(p => node.setBoundVariable(p, v));
+  }
+}

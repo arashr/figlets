@@ -161,16 +161,7 @@ Use `use_figma`. Follow all pre-flight rules from the top.
 
 ### Placement
 
-Always inside a Section:
-```javascript
-let section = figma.currentPage.findOne(n => n.type === 'SECTION' && n.name === 'Components');
-if (!section) {
-  section = figma.createSection();
-  section.name = 'Components';
-  section.x = 0; section.y = 0;
-  figma.currentPage.appendChild(section);
-}
-```
+Always inside a Section. Load `~/.claude/skills/shared/section-utils.js` — call `findOrCreateSection('Components')` to get the section node.
 
 ### Existing component detected — update in-place, never delete
 
@@ -188,23 +179,8 @@ Existing component found?
 ```
 
 **Inspect what exists before planning changes:**
-```javascript
-// Search by base name (with or without existing version suffix)
-const baseName = 'ComponentName';
-const set = figma.currentPage.findOne(n =>
-  (n.name === baseName || n.name.match(new RegExp(`^${baseName} \\d+\\.\\d+\\.\\d+$`))) &&
-  (n.type === 'COMPONENT' || n.type === 'COMPONENT_SET'));
 
-const vMatch = set?.name.match(/(\d+\.\d+\.\d+)$/);
-return {
-  exists: !!set,
-  type: set?.type,
-  currentName: set?.name,
-  currentVersion: vMatch?.[1] || '(unversioned)',
-  variantNames: set?.children?.map(c => c.name),
-  propDefs: set?.componentPropertyDefinitions,
-};
-```
+See `~/.claude/skills/fig-create/scripts/component-lifecycle.js` for the detect/inspect pattern.
 
 Tell the user what will change before executing, including the version bump:
 ```
@@ -224,257 +200,30 @@ Changes planned:
 No variants will be deleted. No instances will break.
 ```
 
-After applying all changes, update the name:
-```javascript
-set.name = 'ComponentName 1.1.0'; // always update the version suffix in-place
-```
+After applying all changes, update the name in-place: `set.name = 'ComponentName 1.1.0';`
 
-**Update existing variants:**
-```javascript
-// Modify properties on an existing variant directly
-const variant = set.children.find(n => n.name === 'Type=Primary, State=Default');
-if (variant) {
-  variant.paddingTop = 16;
-  variant.setBoundVariable('paddingTop', mdVar);
-
-  // Add a new child (e.g. icon frame) if missing
-  if (!variant.findOne(n => n.name === 'icon')) {
-    const iconF = figma.createFrame();
-    iconF.name = 'icon';
-    // ... configure ...
-    variant.insertChild(0, iconF); // insert before label
-  }
-
-  // Add a missing component property
-  if (!variant.componentPropertyDefinitions['label']) {
-    variant.addComponentProperty('label', 'TEXT', 'Button');
-  }
-}
-```
-
-**Add a missing variant to an existing ComponentSet:**
-```javascript
-// Create the new variant component
-const newVariant = figma.createComponent();
-newVariant.name = 'Type=Primary, State=Focus';
-// ... configure layout, fills, children ...
-
-// Position it temporarily, then append to the existing set
-newVariant.x = -99999; newVariant.y = -99999;
-figma.currentPage.appendChild(newVariant);
-
-// Append to the existing ComponentSet — no combineAsVariants needed
-set.appendChild(newVariant);
-```
-
-**Reducing the variant count of an existing ComponentSet:**
-- NEVER create a new ComponentSet and delete the old one — this changes the node ID and breaks all instances.
-- Remove unwanted child variants in-place and rename the keepers:
-
-```javascript
-// Keep only one type's state variants, remove the rest
-const set = figma.currentPage.findOne(n => n.name === 'Button' && n.type === 'COMPONENT_SET');
-for (const variant of [...set.children]) {
-  if (!variant.name.includes('Type=Primary')) variant.remove(); // remove non-primary
-}
-// Rename: "Type=Primary, State=Default" → "State=Default"
-for (const variant of set.children) {
-  variant.name = variant.name.replace('Type=Primary, ', '');
-}
-// Now bind new type variables to the 5 remaining variants
-// ComponentSet node ID is unchanged — all instances stay valid
-```
-
-**If a full structural rebuild is unavoidable** (changing from COMPONENT to COMPONENT_SET, or adding a completely different layer hierarchy):
-1. Scan all instances first.
-2. Build the new component alongside the old one (don't delete yet).
-3. Swap all instances: `inst.swapComponent(newSet.children[0])`.
-4. Only then remove the old component.
-
-```javascript
-// Instance scan across all pages
-await figma.loadAllPagesAsync();
-const toMigrate = [];
-for (const page of figma.root.children) {
-  for (const inst of page.findAll(n => n.type === 'INSTANCE')) {
-    const main = await inst.getMainComponentAsync();
-    if (main && (main.id === oldComp.id || main.parent?.id === oldComp.id)) {
-      toMigrate.push(inst);
-    }
-  }
-}
-// Swap then delete
-for (const inst of toMigrate) inst.swapComponent(newSet.defaultVariant || newSet.children[0]);
-oldComp.remove();
-```
+See `~/.claude/skills/fig-create/scripts/component-lifecycle.js` for update, add-variant, reduce-variant, and instance-migration patterns.
 
 ### Effect preservation (when building from a selected frame)
 
-Read and carry over source effects before building:
-
-```javascript
-const srcNode = figma.currentPage.selection[0];
-const sourceEffects = srcNode?.effects ? JSON.parse(JSON.stringify(srcNode.effects)) : [];
-
-// 1. Check if any elevation Effect Style matches the source shadow
-const effectStyles = figma.getLocalEffectStyles();
-let matchedStyleId = null;
-if (sourceEffects.length > 0 && effectStyles.length > 0) {
-  const srcShadow = sourceEffects.find(e => e.type === 'DROP_SHADOW');
-  if (srcShadow) {
-    const match = effectStyles.find(s => {
-      const se = s.effects.find(e => e.type === 'DROP_SHADOW');
-      return se && Math.abs(se.radius - srcShadow.radius) <= 2
-                && Math.abs(se.offset.y - srcShadow.offset.y) <= 2;
-    });
-    if (match) matchedStyleId = match.id;
-  }
-}
-
-// After building comp — apply effects:
-if (matchedStyleId) {
-  comp.effectStyleId = matchedStyleId;   // preferred: use the system's Effect Style
-} else if (sourceEffects.length > 0) {
-  comp.effects = sourceEffects;          // fallback: preserve raw effects
-  // Then attempt to bind each property to elevation variables by value match
-  // using bindEffect helper (see Variable binding helpers below)
-}
-```
+Read `~/.claude/skills/fig-create/scripts/effect-preservation.js` then run via `use_figma` before building. Returns `{ matchedStyleId, hasSourceEffects, sourceEffects }`.
 
 **Priority:** Effect Style match → raw preservation with variable binding → no effect.
 Report which path was taken in the build summary.
 
 ---
 
-### Node creation — ordering matters
-
-```javascript
-// 1. Load fonts first
-await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
-await figma.loadFontAsync({ family: 'Inter', style: 'Semi Bold' });
-await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
-
-// 2. Create node and set non-layout properties
-const comp = figma.createComponent();
-comp.name = 'ComponentName 1.0.0'; // new components always start at 1.0.0
-comp.layoutMode = 'HORIZONTAL';
-comp.primaryAxisSizingMode = 'AUTO';
-comp.counterAxisSizingMode = 'AUTO';
-comp.paddingTop = N; // raw value first
-comp.fills = [{ type: 'SOLID', color: { r, g, b } }]; // {r,g,b} only — no 'a'
-
-// 3. Append to parent
-section.appendChild(comp);
-
-// 4. Bind variables (after append)
-bindFill(comp, 'token-name');
-bindNum(comp, 'paddingTop', 'token-name');
-
-// 5. Create children, append, then set FILL sizing
-const child = figma.createFrame();
-comp.appendChild(child);
-child.layoutSizingHorizontal = 'FILL'; // AFTER appendChild
-```
-
 ### Variable binding helpers
 
-```javascript
-const allVars = await figma.variables.getLocalVariablesAsync();
-const varByName = {};
-allVars.forEach(v => { varByName[v.name] = v; });
+Load `~/.claude/skills/shared/bind-helpers.js` — paste at top of every `use_figma` build script.
 
-function bindFill(node, varName) {
-  const v = varByName[varName];
-  if (!v || !node.fills?.length) return;
-  const fills = JSON.parse(JSON.stringify(node.fills));
-  fills[0] = figma.variables.setBoundVariableForPaint(fills[0], 'color', v);
-  node.fills = fills;
-}
+### Node creation — ordering matters
 
-function bindStroke(node, varName) {
-  const v = varByName[varName];
-  if (!v || !node.strokes?.length) return;
-  const strokes = JSON.parse(JSON.stringify(node.strokes));
-  strokes[0] = figma.variables.setBoundVariableForPaint(strokes[0], 'color', v);
-  node.strokes = strokes;
-}
-
-function bindNum(node, prop, varName) {
-  const v = varByName[varName]; if (!v) return;
-  node.setBoundVariable(prop, v);
-}
-
-function bindRadius(node, varName) {
-  const v = varByName[varName]; if (!v) return;
-  ['topLeftRadius','topRightRadius','bottomLeftRadius','bottomRightRadius']
-    .forEach(p => node.setBoundVariable(p, v));
-}
-
-function bindEffect(node, effectIndex, field, varName) {
-  // field: 'color' | 'radius' | 'spread' | 'offsetX' | 'offsetY'
-  // Bind each field in a separate call — multiple bindings on the same effect
-  // must be chained (each call returns the updated effect; use that as input to next call)
-  const v = varByName[varName]; if (!v) return false;
-  const clone = node.effects.map(e => ({ ...e }));
-  clone[effectIndex] = figma.variables.setBoundVariableForEffect(clone[effectIndex], field, v);
-  node.effects = clone;
-  return true;
-}
-
-function bindStrokeWeight(node, varName) {
-  const v = varByName[varName]; if (!v) return;
-  if (node.type === 'TEXT') {
-    node.setBoundVariable('strokeWeight', v);
-  } else {
-    ['strokeTopWeight','strokeBottomWeight','strokeLeftWeight','strokeRightWeight']
-      .forEach(p => node.setBoundVariable(p, v));
-  }
-}
-```
-
-### Text node pattern
-
-```javascript
-const label = figma.createText();
-label.fontName = { family: 'Inter', style: 'Regular' };
-label.characters = 'Label text';
-label.fontSize = 16;
-label.fills = [{ type: 'SOLID', color: { r, g, b } }];
-comp.appendChild(label);           // append first
-label.layoutSizingHorizontal = 'FILL'; // then FILL
-label.textAutoResize = 'HEIGHT';       // then textAutoResize
-bindFill(label, 'ink-black');
-bindNum(label, 'fontSize', 'body');
-```
-
-### Text component properties
-
-After creating all text nodes, expose each as a component property:
-```javascript
-comp.addComponentProperty('label', 'TEXT', 'Default text');
-const propKey = Object.keys(comp.componentPropertyDefinitions).find(k => k.startsWith('label'));
-if (propKey) textNode.componentPropertyReferences = { characters: propKey };
-```
+See `~/.claude/skills/fig-create/scripts/node-patterns.js` for node creation order, text node, and component property patterns.
 
 ### After build — self-audit and bind the ComponentSet wrapper
 
-After `combineAsVariants`, bind the new COMPONENT_SET wrapper's hardcoded defaults immediately:
-
-```javascript
-// After combineAsVariants:
-const set = figma.combineAsVariants(variants, pg);
-set.name = 'ComponentName 1.0.0'; // new: 1.0.0 | update: bump per versioning rule
-// ... set layoutMode, itemSpacing, padding ...
-
-// Bind the wrapper's own tokens
-bindRadius(set, 'xs');           // 5px default → xs (4px nearest)
-bindNum(set, 'paddingTop',    'md');  // adjust token to match your wrapper padding
-bindNum(set, 'paddingBottom', 'md');
-bindNum(set, 'paddingLeft',   'md');
-bindNum(set, 'paddingRight',  'md');
-bindNum(set, 'itemSpacing',   'sm');
-try { bindNum(set, 'counterAxisSpacing', 'sm'); } catch(e) {}
-```
+After `combineAsVariants`, bind the new COMPONENT_SET wrapper's hardcoded defaults immediately. See `~/.claude/skills/fig-create/scripts/node-patterns.js` for the combineAsVariants wrapper binding pattern.
 
 Then run a **post-build self-audit** and silently fix any remaining violations before showing the screenshot:
 
@@ -517,53 +266,7 @@ Ask: "Build states? **Default · Hover · Focus · Active · Disabled** (built a
 
 If approved, create a separate COMPONENT with `State=<name>` for each state, then combine and wire:
 
-```javascript
-// Pre-position before combining
-const variants = [defaultComp, hoverComp, focusComp, activeComp, disabledComp];
-variants.forEach((v, i) => { v.x = i * 400; v.y = -30000; pg.appendChild(v); });
-
-const set = figma.combineAsVariants(variants, pg);
-set.name = 'ComponentName 1.0.0'; // always include X.Y.Z — new = 1.0.0, update = bump per rule
-set.layoutMode = 'HORIZONTAL'; set.layoutWrap = 'WRAP';
-set.primaryAxisSizingMode = 'AUTO'; set.counterAxisSizingMode = 'AUTO';
-set.itemSpacing = 8; set.paddingTop = 20; set.paddingBottom = 20;
-set.paddingLeft = 20; set.paddingRight = 20;
-try { set.counterAxisSpacing = 8; } catch(e) {}
-
-// Wire interactions after combining
-async function rxAdd(set, list) {
-  for (const { from, to, trigger } of list) {
-    const src = set.children.find(n => n.name.includes(from));
-    const dst = set.children.find(n => n.name.includes(to));
-    if (!src || !dst) continue;
-    await src.setReactionsAsync([...(src.reactions || []), {
-      actions: [{ type: 'NODE', destinationId: dst.id, navigation: 'CHANGE_TO',
-                  transition: null, preserveScrollPosition: false }],
-      trigger: { type: trigger }
-    }]);
-  }
-}
-
-await rxAdd(set, [
-  { from: 'Default', to: 'Hover',   trigger: 'ON_HOVER' },
-  // Note: MOUSE_LEAVE is NOT a valid Figma trigger — ON_HOVER auto-returns when mouse leaves.
-  // Do NOT add a MOUSE_LEAVE reaction. Figma handles the return automatically.
-  { from: 'Default', to: 'Active',  trigger: 'ON_PRESS' },
-  { from: 'Default', to: 'Focus',   trigger: 'ON_CLICK' },
-]);
-```
-
-Focus ring pattern (use for Focus state):
-```javascript
-const FOCUS_RING = [
-  { type:'DROP_SHADOW', color:{r:0,g:0.42,b:0.88,a:1}, offset:{x:0,y:0}, radius:0, spread:4, visible:true, blendMode:'NORMAL' },
-  { type:'DROP_SHADOW', color:{r:1,g:1,b:1,a:1},       offset:{x:0,y:0}, radius:0, spread:2, visible:true, blendMode:'NORMAL' }
-];
-// REQUIRED: set clipsContent = true on the component for spread shadows to render.
-// Without it Figma hides the shadow entirely.
-focusVariant.clipsContent = true;
-focusVariant.effects = FOCUS_RING;
-```
+Read `~/.claude/skills/fig-create/scripts/variant-wiring.js` then run via `use_figma`. Substitute component name/version in `set.name`.
 
 ---
 
@@ -595,57 +298,11 @@ Does this dimension change layout structure?
 
 ### Variable mode pattern for Type
 
-```javascript
-// 1. Create a variable collection for the type dimension
-const colls = await figma.variables.getLocalVariableCollectionsAsync();
-let typeColl = colls.find(c => c.name === 'Button · Type');
-if (!typeColl) {
-  typeColl = figma.variables.createVariableCollection('Button · Type');
-  typeColl.renameMode(typeColl.modes[0].modeId, 'Primary');
-}
-const primaryMode = typeColl.modes[0].modeId;
-const secondaryMode = typeColl.addMode('Secondary');
-const ghostMode     = typeColl.addMode('Ghost');
-const dangerMode    = typeColl.addMode('Danger');
-
-// 2. Create one variable per property that changes across types
-const bgVar = figma.variables.createVariable('button/bg', typeColl, 'COLOR');
-bgVar.setValueForMode(primaryMode, { r: 0.071, g: 0.071, b: 0.078, a: 1 }); // ink-black
-bgVar.setValueForMode(secondaryMode, { r: 0.961, g: 0.941, b: 0.922, a: 1 }); // paper
-bgVar.setValueForMode(ghostMode,     { r: 0, g: 0, b: 0, a: 0 });             // transparent
-bgVar.setValueForMode(dangerMode,    { r: 0.863, g: 0.133, b: 0.0, a: 1 });   // overprint-red
-
-// (repeat for fgVar, strokeVar, hasBorderVar, etc.)
-
-// 3. Bind type variables to each STATE variant — identical binding in all 5
-for (const variant of set.children) {
-  const fills = [{ type: 'SOLID', color: { r: 0.071, g: 0.071, b: 0.078 } }];
-  const f = figma.variables.setBoundVariableForPaint(fills[0], 'color', bgVar);
-  variant.fills = [f];
-  // bind text, stroke, etc. similarly
-}
-
-// 4. When instantiating, callers set the mode to choose the type:
-// instance.setExplicitVariableModeForCollection(typeColl, secondaryMode);
-```
-
-**On instances, set the type mode:**
-```javascript
-// In consuming code or when placing the component:
-const inst = buttonVariant.createInstance();
-inst.setExplicitVariableModeForCollection(typeColl, ghostMode); // → Ghost type
-```
+Read `~/.claude/skills/fig-create/scripts/type-collection.js` then run via `use_figma`. Substitute collection name, mode names, and variable values.
 
 ### Boolean property pattern (show/hide)
 
-```javascript
-// On the COMPONENT (not COMPONENT_SET):
-comp.addComponentProperty('showFooter', 'BOOLEAN', true);
-const propKey = Object.keys(comp.componentPropertyDefinitions).find(k => k.startsWith('showFooter'));
-// Bind to the frame that should show/hide:
-const footerFrame = comp.findOne(n => n.name === 'Footer');
-if (propKey && footerFrame) footerFrame.componentPropertyReferences = { visible: propKey };
-```
+See `~/.claude/skills/fig-create/scripts/node-patterns.js` for the boolean property pattern.
 
 ### Examples (correct implementations)
 
@@ -663,12 +320,7 @@ Ask: "Which additional variants would you like? (numbers / all / none)"
 
 ## Step 10 — Component description
 
-Generate a description and apply via `use_figma`:
-```javascript
-const comp = figma.currentPage.findOne(n =>
-  n.name === 'YourComponent' && (n.type === 'COMPONENT' || n.type === 'COMPONENT_SET'));
-if (comp) comp.description = `<description>`;
-```
+Generate a description and apply via `use_figma`. See `~/.claude/skills/fig-create/scripts/node-patterns.js` for the description apply pattern.
 
 Format:
 ```

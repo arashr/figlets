@@ -16,7 +16,10 @@
       "mcp__5acfe31c-99f3-4913-a1f2-975bf3af4ebb__create_new_file",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(wc -l skills/*/SKILL.md)"
+      "Bash(wc -l skills/*/SKILL.md)",
+      "Bash(wc -c skills/*/SKILL.md)",
+      "Bash(ls skills/*/scripts/)",
+      "Bash(grep -rn '```javascript' /Users/arash/Projects/figlets/skills/fig-setup/SKILL.md /Users/arash/Projects/figlets/skills/fig-create/SKILL.md /Users/arash/Projects/figlets/skills/fig-qa/SKILL.md /Users/arash/Projects/figlets/skills/fig-document/SKILL.md)"
     ]
   }
 }

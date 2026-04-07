@@ -87,12 +87,12 @@ Each skill is standalone — use them independently or chain them:
 
 Bootstraps a complete Figma variable architecture for a new design system. Walks through project intake (platform, brand colors, scale choices), then builds 5 variable collections one at a time — previewing each before writing to Figma.
 
-- **Collection 1 — Primitives**: color ramps with WCAG/APCA contrast annotations, scrim primitives (black/white with alpha, for overlays and state layers), shadow numeric primitives (FLOAT), type scale, spacing scale. Hidden from publishing.
-- **Collection 2 — Color Semantics**: Light/Dark aliases into primitives. Role-based or Surface-based naming (Material 3 style). Scrim semantic tokens (`color/scrim/hover`, `color/scrim/overlay`, etc.) and shadow color aliases (`color/shadow/key`, `color/shadow/ambient`) — white-based scrims in dark mode for visible shadow depth. Mandatory contrast verification table before building.
-- **Collection 3 — Typography**: Material 3 naming (`type/display/lg|md|sm` → `type/label/lg|md|sm`), 15 roles. Figma Text Styles created with each property (fontSize, lineHeight, letterSpacing) bound to Collection 3 variables. Mobile/Desktop responsive modes.
-- **Collection 4 — Spacing**: Mobile/Desktop responsive — component, layout, inset, stack, touch target, radius, and border tokens.
-- **Collection 5 — Elevation**: 6 Effect Styles (`elevation/0`–`elevation/5`) with shadow offset, radius, and color all bound to variables. Shadow color updates automatically in Light/Dark mode.
-- **Optional token showcase**: visual reference frame with every value bound to a variable — color ramps with contrast badges, semantic color pairs, scrim overlay demos, typography scale, spacing bars, border radius, border width, and elevation cards.
+- **Collection 1 — Primitives**: color ramps with WCAG/APCA contrast annotations, scrim primitives, shadow primitives, full type scale, and spacing scale (8px and 4px grids, including 44px WCAG touch target). Hidden from publishing.
+- **Collection 2 — Color Semantics**: Light/Dark mode aliases — every bg token is defined with its paired text token and inline contrast ratio. No pair below 4.5:1 is built without approval. Role-based or Surface-based (Material 3) naming. Scrim/state/shadow color aliases included.
+- **Collection 3 — Typography**: configurable scale (Material 3, Fluid, Compact, or Custom), 15 roles, responsive modes from `DS.breakpoints.modes`. Every variable is a `VARIABLE_ALIAS` to a Collection 1 primitive — no raw values. Throws with a full list of missing primitives before creating any variables.
+- **Collection 4 — Spacing**: responsive per `DS.breakpoints.modes` — component, layout, inset, stack, touch target, radius, and border tokens.
+- **Collection 5 — Elevation**: Effect Styles with shadow offset, radius, and color all bound to variables. Shadow color updates automatically in Light/Dark mode.
+- **Optional token showcase**: visual reference frame — color ramps (swatches only, no misleading isolated contrast badges), semantic pairs with actual bg/text contrast ratios, scrim demos, typography scale, spacing bars, border radius, border width, and elevation cards.
 
 Standalone — no other figlets skill is required before or after.
 

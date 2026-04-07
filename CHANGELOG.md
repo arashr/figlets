@@ -4,6 +4,41 @@ All notable changes to figlets are documented here.
 
 ---
 
+## v1.2.0 — 2026-04-07
+
+### fig-setup 1.4.0
+
+#### Architecture
+
+- **Primitives-first enforcement** — semantic and responsive collections (Collections 2–5) are now aliases only; no raw values permitted. `create-typography-vars.js` uses `requireAlias()` which throws if a primitive is missing rather than silently setting a raw value
+- **Pre-validation pass** — `create-typography-vars.js` checks every required primitive exists in Collection 1 before creating any variables; throws with the full list of missing names so a misconfigured scale is caught before any variables are created
+- **Semantic color pairs** — the Collection 2 mapping preview is now pair-first (bg + text + inline WCAG ratio). bg and text tokens are no longer shown as separate flat lists. No pair may be built with a ratio below 4.5:1 without explicit user approval
+- **Config generated from scratch** — removed stale instruction to read a template file; config is always generated from intake answers using the full schema
+
+#### New scripts
+
+- **`create-primitives.js`** — builds Collection 1 from `DS.color.ramps`, type scale, and spacing; derives extra size/tracking primitives from `DS.typography.scale` so semantic aliases are always satisfiable
+- **`create-typography-vars.js`** — builds Collection 3 with responsive modes; all size/weight/tracking/family variables are `VARIABLE_ALIAS` to Collection 1; line-height is intentionally raw px (ratio × size computation)
+- **`detect-design-system.js`** — detects existing variable collections and infers config values; populates `_meta.needsInput` for fields that require intake
+- **`shared/parse-variables.js`** — shared utility providing `varByName`, `colorVarByHex`, `spacingVarByValue`, `typographyVarByValue`, and `rgbDist`
+
+#### Bug fixes
+
+- **`naming.textStyle` prefix validation** — startup throws with a clear message if `DS.naming.textStyle` starts with a placeholder (`{role}/{size}` → `{role}` is invalid in Figma variable names); default is `type/{role}/{size}`
+- **Decimal spacing names** — `space/0.5` is an invalid Figma variable path; fractional steps are now sanitized to `space/0-5`. `SPACING_8` also gains `[11, 44]` — the 44px WCAG 2.5.5 minimum touch target was missing from the 8px scale
+- **`create-text-styles.js`** — `setBoundVariable('fontStyle', weightVar)` threw because `fontStyle` requires a STRING variable; fixed to use `'fontWeight'` (FLOAT) matching what Figma's UI exposes. `figma.loadFontAsync` now called via `Promise.all` before the loop — loading fonts inside the loop caused failures on the first `fontName` assignment
+- **Font availability fallback** — `listAvailableFontsAsync()` is used to verify each weight's style name exists in the font before setting `fontName`; fallback chain: desired → Semi Bold → Bold → Regular
+- **Showcase accessibility** — Section A (primitive ramps) no longer shows WCAG contrast badges; a single color has no accessibility value without context. Section B (semantic pairs) now computes contrast between the actual bg and text variable pair, not against a fixed white/black reference
+- **Hook input format** — all four guardrail hooks (`auto-install`, `lazy-load-check`, `pre-commit`, `shared-library-check`) were reading `CLAUDE_TOOL_INPUT` env var which is always empty; Claude Code passes tool data via stdin as JSON with shape `{ tool_input: { file_path, ... } }`
+
+#### PRE-FLIGHT rules added (9–11)
+
+- Rule 9: Accessibility badges belong on pairs, never on isolated colors
+- Rule 10: Pre-validate all alias targets before creating any variables
+- Rule 11: Semantic pairing is structural — define bg+text pairs with inline contrast ratios; no flat separate lists
+
+---
+
 ## v1.1.0 — 2026-03-19
 
 ### fig-setup 1.3.2 (new skill)

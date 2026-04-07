@@ -1,6 +1,6 @@
 ---
 name: fig-setup
-version: 1.3.2
+version: 1.4.0
 description: Bootstrap a complete Figma variable architecture for a new design system — color primitives, semantic light/dark tokens, responsive typography, and spacing. Standalone skill. Use when setting up Figma variables, creating design tokens, or starting a new design system from scratch.
 ---
 
@@ -18,17 +18,42 @@ You are a senior design systems engineer. Bootstrap a complete, production-grade
 2. **Alias format** — when aliasing a variable to a primitive, use `{ type: "VARIABLE_ALIAS", id: "<primitiveVariableId>" }` as the value, not a raw hex or number.
 3. **Mode IDs** — `collection.addMode()` returns a `modeId`. Store all mode IDs immediately after creation — they're required for every value assignment.
 4. **Folder grouping** — use `/` separators in variable names (e.g., `color/brand/500`). Figma renders these as nested folders.
-5. **Primitives: hide from publishing** — set `collection.hiddenFromPublishing = true` inside the same `use_figma` call that creates Collection 1.
-6. **Never hardcode hex in Collections 2–4** — semantic and responsive collections must alias primitives. If you catch yourself writing a hex value in Collection 2+, stop and find the right primitive.
-7. **Conflict check first** — at the start of each collection, call `mcp__Figma__get_variable_defs` to check if a collection with that name already exists. Ask the user before overwriting.
+5. **Primitives: hide from publishing** — set `collection.hiddenFromPublishing = true` AFTER creating at least the first variable in the collection (not immediately after `createVariableCollection()`). Wrap in try/catch — the setter throws on empty collections and on some Figma plan tiers.
+6. **Primitives first, always** — before building any semantic or responsive collection (Color Semantics, Typography, Spacing), every value that collection needs must already exist as a primitive in Collection 1. Never set a raw number or hex in Collections 2–5. If a needed primitive is missing, stop and add it to Collection 1 first.
+7. **Semantic collections are aliases only** — every variable in Collections 2–5 must be a `VARIABLE_ALIAS` pointing to a Collection 1 primitive. The only legitimate raw values are computed properties that primitives cannot express (e.g. typography line-height in px, which is size × ratio and cannot be stored as a direct alias). All sizes, weights, tracking values, colors, and spacing values must be aliases.
+8. **Conflict check first** — at the start of each collection, call `mcp__Figma__get_variable_defs` to check if a collection with that name already exists. Ask the user before overwriting.
+9. **Accessibility belongs on pairs, never on isolated colors** — a single color has no accessibility value in isolation. WCAG contrast only has meaning between a foreground and a background. Consequences: (a) In the token showcase, Section A (primitive ramps) shows swatches with step name and hex only — no contrast badges. Section B (semantic pairs) shows contrast computed from the actual bg+text variable pair — never vs a fixed reference color. (b) In the semantic mapping preview, every bg token must be shown paired with its text counterpart and a computed WCAG ratio before building. Never present bg tokens and text tokens as separate flat lists.
+10. **Pre-validate all alias targets before creating any variables** — at the start of any script that builds a semantic or responsive collection, load all existing Collection 1 variable names into a Set and check every intended alias target against it. Collect all missing names and throw with the full list before creating a single variable. A missing primitive caught upfront is a config fix; a missing primitive caught mid-build is a half-built collection that must be manually deleted.
+11. **Semantic pairing is structural, not a post-check** — define bg+text pairs together in the mapping preview. The contrast ratio is shown inline for every pair. No pair may be built with a ratio below 4.5:1 without explicit user approval and a documented reason. Tokens that have no text counterpart (borders, icons, scrims, shadows) are listed separately and labeled with their relevant standard (3:1 for icons/borders, composite for scrims). Disabled text tokens are explicitly exempt from contrast requirements (WCAG 1.4.3).
 
 For `use_figma` calls (showcase phase), component API rules also apply: fill colors use `{r,g,b}` only, `FILL` sizing set after appendChild, async collection calls only.
 
 ---
 
+## Phase 0 — Config Check
+
+Before asking any questions, check for an existing config file:
+
+**If `design-system.config.js` exists in the working directory:**
+- Read it and present a summary: project name, platform, grid base, typeface, collections.
+- Ask: "Found an existing config. Use it, update it, or start fresh?"
+  - **Use it** → skip intake, proceed directly to Architecture Overview using config values.
+  - **Update it** → run intake for only the fields the user wants to change, then rewrite the file.
+  - **Start fresh** → delete the config, run full intake below.
+
+**If no config exists:**
+- Run detect: call `run_skill_script("fig-setup/scripts/detect-design-system.js")` then run result via `use_figma`.
+- Parse the returned JSON. For each field in `_meta.detectedFields`, present the detected value and confirm: "Detected [field]: [value] — correct?"
+- Ask only the questions in `_meta.needsInput` (skip already-detected fields).
+- After all answers collected, write `design-system.config.js` in the working directory using the confirmed values.
+
+**After intake or config load:** proceed to Architecture Overview.
+
+---
+
 ## Phase 0 — Project Intake
 
-Ask each question individually, one at a time. Wait for the answer before asking the next.
+Ask only the questions not already answered by detection or the existing config. One at a time. Wait for each answer before continuing.
 
 **Q1 — Project name**
 > What should this design system be called?
@@ -73,6 +98,23 @@ Ask each question individually, one at a time. Wait for the answer before asking
 > What font family or families are you using?
 > Reply "suggest" if undecided — I'll recommend a pairing.
 
+**Q9 — Typography scale**
+> Which type scale style?
+> - **Material 3** (default) — balanced, suitable for most products
+> - **Fluid** — larger display text (48–80px), ideal for marketing and expressive UIs
+> - **Compact** — tighter overall scale, good for dense data-heavy products
+> - **Custom** — I'll show you the full table to adjust values
+>
+> Reply "show" to preview the full table before deciding.
+
+After Q9, confirm the full scale as a table before writing to config. For **Fluid**, use: display/lg desktop 72px, display/md 60px, display/sm 48px; scale headline/title/body/label the same as Material 3. For **Compact**, use: display/lg desktop 45px, display/md 36px, display/sm 30px; headline/lg 24px, headline/md 20px, headline/sm 18px; title/body/label same as Material 3. For **Custom**, show the Material 3 defaults and let the user edit specific rows.
+
+The confirmed scale — including any per-role customizations — must be written to `DS.typography.scale` in the config. `DS.breakpoints.modes` must also be written with the confirmed mode names (default: `['Mobile', 'Tablet', 'Desktop']`, add `'Wide'` for 4-tier).
+
+**After all answers collected — write config:**
+
+Generate `design-system.config.js` from scratch using the intake answers and detection results. Do not look for or read a template file — the config is always generated, never copied. Include every field the scripts depend on: `DS.collections.*`, `DS.naming.*`, `DS.grid.*`, `DS.breakpoints.modes`, `DS.breakpoints.tier`, `DS.color.*`, `DS.typography.families`, `DS.typography.scale` (all 15 roles with sizes, lineHeights, weight, tracking per breakpoint mode). This file is the single source of truth for all fig-setup scripts in this project.
+
 ---
 
 ## Architecture Overview
@@ -99,8 +141,8 @@ Once intake is complete, explain this before any build work:
 
 ### Conflict check
 
-Call `mcp__Figma__get_variable_defs`. If a "Primitives" collection already exists, ask:
-> "A 'Primitives' collection already exists. Overwrite it, append new variables, or skip to Collection 2?"
+Call `mcp__Figma__get_variable_defs`. Use `DS.collections.primitives` from config as the collection name. If a collection with that name already exists, ask:
+> "A '[DS.collections.primitives]' collection already exists. Overwrite it, append new variables, or skip to Collection 2?"
 
 ### 1A. Color Primitives
 
@@ -260,7 +302,7 @@ space/4    16
 
 After previewing all three sections and the user confirms:
 
-1. Call `use_figma` to create the Primitives collection with **all** variable groups in a single script: color ramps (1A), scrim primitives (1A-ii), shadow primitives (1A-iii), type primitives (1B), spacing primitives (1C). Set `collection.hiddenFromPublishing = true` in the same call.
+1. Before building: write `DS.color.ramps` to `design-system.config.js` with the ramp data calculated during the 1A preview — each entry `{ folder: 'color/[hue]', steps: [[step, r, g, b], ...] }`, r/g/b as 0–1 floats. Then call `run_skill_script("fig-setup/scripts/create-primitives.js")` and run result via `use_figma`. The script reads ramps from `DS.color.ramps` and creates the collection, all variable groups, and sets `hiddenFromPublishing` safely after the first variable.
 2. Call `mcp__Figma__get_screenshot` — verify the variable panel shows the expected variable count and grouping. Confirm that `color/scrim/*` and `shadow/*/offset-y` appear in the list.
 
 Ask: "Collection 1 — Primitives is built. Does the color ramp look right? Any hues to adjust before we wire up semantics in Collection 2?"
@@ -273,53 +315,110 @@ Ask: "Collection 1 — Primitives is built. Does the color ramp look right? Any 
 
 Call `mcp__Figma__get_variable_defs`. If "Color / Semantics" collection already exists, ask to overwrite / append / skip.
 
-### Semantic mapping
+### Semantic mapping — pair-first
 
-Use the naming convention chosen in intake. Show the full preview table before building. All values shown as primitive aliases (written as names for review — resolved to variable IDs when building).
+**Every background token is defined together with its text token(s) and their contrast ratio. You cannot define a bg without its text pair. You cannot build until every pair meets ≥4.5:1 (AA). No exceptions.**
 
-**Role-based naming:**
+Use the naming convention chosen in intake. Substitute actual WCAG ratios calculated from the primitives chosen in Phase 1A. Flag any pair that fails — suggest the nearest primitive step that achieves 4.5:1, then confirm the adjustment with the user before proceeding.
+
+```
+💡 APCA note: dark mode body text should aim for Lc 75+, not just WCAG 4.5:1.
+   Flag any dark text token below Lc 60.
+ℹ️  Scrims, borders, icons, shadows are not bg/text pairs — listed separately below.
+   Do not include them in ratio checks. Composite contrast (bg + scrim + text)
+   is verified separately for hover/overlay states.
+```
+
+**Role-based naming — paired surfaces:**
 
 ```
 Collection: Color / Semantics
 Modes: Light | Dark
 
-— Backgrounds —
-color/bg/default          Light: neutral/50    Dark: neutral/950
-color/bg/subtle           Light: neutral/100   Dark: neutral/900
-color/bg/muted            Light: neutral/200   Dark: neutral/800
-color/bg/brand            Light: [primary]/600 Dark: [primary]/500
-color/bg/brand-subtle     Light: [primary]/50  Dark: [primary]/950
-color/bg/danger           Light: red/600       Dark: red/500
-color/bg/danger-subtle    Light: red/50        Dark: red/950
-color/bg/success          Light: green/600     Dark: green/500
-color/bg/success-subtle   Light: green/50      Dark: green/950
-color/bg/warning          Light: yellow/500    Dark: yellow/400
-color/bg/warning-subtle   Light: yellow/50     Dark: yellow/950
-color/bg/info             Light: blue/600      Dark: blue/500
-color/bg/info-subtle      Light: blue/50       Dark: blue/950
+— Role: default (page + neutral surface) ——————————————————————————————————————
+  bg:   color/bg/default      Light: neutral/50    Dark: neutral/950
+  ├─ text: color/text/default  Light: neutral/950   Dark: neutral/50
+  │        → Light: [X.X:1 ✓AA ✓AAA]   Dark: [X.X:1 ✓AA ✓AAA]
+  ├─ text: color/text/subtle   Light: neutral/700   Dark: neutral/300
+  │        → Light: [X.X:1 ✓AA]         Dark: [X.X:1 ✓AA]
+  └─ text: color/text/muted    Light: neutral/500   Dark: neutral/500
+           → Light: [X.X:1 ⚠ borderline] Dark: [X.X:1 ⚠]  ← decorative only if <4.5
 
-— Text —
-color/text/default        Light: neutral/950   Dark: neutral/50
-color/text/subtle         Light: neutral/700   Dark: neutral/300
-color/text/muted          Light: neutral/500   Dark: neutral/500
+  bg:   color/bg/subtle        Light: neutral/100   Dark: neutral/900
+  └─ text: color/text/default  (same token as above — verify ratio on this bg)
+           → Light: [X.X:1 ✓AA]          Dark: [X.X:1 ✓AA]
+
+  bg:   color/bg/muted         Light: neutral/200   Dark: neutral/800
+  └─ text: color/text/default  (same token — verify ratio on this bg)
+           → Light: [X.X:1 ✓AA]          Dark: [X.X:1 ✓AA]
+
+— Role: inverse ————————————————————————————————————————————————————————————————
+  bg:   color/bg/default       Light: neutral/50    Dark: neutral/950
+  └─ text: color/text/inverse  Light: neutral/50    Dark: neutral/950
+           → [used for inverse chips / reversed banners — verify at use site]
+
+— Role: brand ——————————————————————————————————————————————————————————————————
+  bg:   color/bg/brand         Light: [primary]/600  Dark: [primary]/500
+  └─ text: color/text/on-brand Light: neutral/50     Dark: neutral/950
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+
+  bg:   color/bg/brand-subtle  Light: [primary]/50   Dark: [primary]/950
+  └─ text: color/text/brand    Light: [primary]/700  Dark: [primary]/300
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+
+— Role: danger —————————————————————————————————————————————————————————————————
+  bg:   color/bg/danger        Light: red/600        Dark: red/500
+  └─ text: color/text/on-danger  Light: neutral/50   Dark: neutral/950
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+
+  bg:   color/bg/danger-subtle Light: red/50         Dark: red/950
+  └─ text: color/text/danger   Light: red/700        Dark: red/300
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+
+— Role: success ————————————————————————————————————————————————————————————————
+  bg:   color/bg/success       Light: green/600      Dark: green/500
+  └─ text: color/text/on-success Light: neutral/50   Dark: neutral/950
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+
+  bg:   color/bg/success-subtle Light: green/50      Dark: green/950
+  └─ text: color/text/success  Light: green/700      Dark: green/300
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+
+— Role: warning ⚠ yellow almost always fails with light text ————————————————
+  bg:   color/bg/warning       Light: yellow/500     Dark: yellow/400
+  └─ text: color/text/on-warning Light: neutral/950  Dark: neutral/950  ← MUST be dark text
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+
+  bg:   color/bg/warning-subtle Light: yellow/50     Dark: yellow/950
+  └─ text: color/text/warning  Light: yellow/800     Dark: yellow/300
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+
+— Role: info ———————————————————————————————————————————————————————————————————
+  bg:   color/bg/info          Light: blue/600       Dark: blue/500
+  └─ text: color/text/on-info  Light: neutral/50     Dark: neutral/950
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+
+  bg:   color/bg/info-subtle   Light: blue/50        Dark: blue/950
+  └─ text: color/text/info     Light: blue/700       Dark: blue/300
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+```
+
+**Role-based — unpaired tokens (no text counterpart — contrast enforced at component level):**
+
+```
+— Disabled text (intentionally sub-AA — decorative signal of unavailability) —
 color/text/disabled       Light: neutral/400   Dark: neutral/600
-color/text/inverse        Light: neutral/50    Dark: neutral/950
-color/text/brand          Light: [primary]/700 Dark: [primary]/300
-color/text/danger         Light: red/700       Dark: red/300
-color/text/success        Light: green/700     Dark: green/300
-color/text/warning        Light: yellow/800    Dark: yellow/300   ← yellow often fails AA — verify
-color/text/info           Light: blue/700      Dark: blue/300
-color/text/on-brand       Light: neutral/50    Dark: neutral/950  ← text ON brand bg
+  ← WCAG 1.4.3 exception: disabled controls are exempt from contrast requirements
 
-— Borders —
+— Borders (decorative / structural — not text) —
 color/border/default      Light: neutral/200   Dark: neutral/800
 color/border/subtle       Light: neutral/100   Dark: neutral/900
 color/border/strong       Light: neutral/400   Dark: neutral/600
 color/border/brand        Light: [primary]/500 Dark: [primary]/500
 color/border/danger       Light: red/500       Dark: red/500
-color/border/focus        Light: [primary]/500 Dark: [primary]/400   ← focus ring
+color/border/focus        Light: [primary]/500 Dark: [primary]/400   ← focus ring: 3:1 vs adjacent bg required
 
-— Icons —
+— Icons (3:1 required for graphical objects per WCAG 1.4.11, not 4.5:1) —
 color/icon/default        Light: neutral/700   Dark: neutral/300
 color/icon/subtle         Light: neutral/500   Dark: neutral/500
 color/icon/brand          Light: [primary]/600 Dark: [primary]/400
@@ -329,95 +428,102 @@ color/icon/warning        Light: yellow/700    Dark: yellow/400
 color/icon/info           Light: blue/600      Dark: blue/400
 color/icon/inverse        Light: neutral/50    Dark: neutral/950
 
-— Surfaces (elevation) —
+— Elevation surfaces (text color from role:default pair above) —
 color/surface/default     Light: neutral/50    Dark: neutral/950   ← page bg
 color/surface/raised      Light: neutral/100   Dark: neutral/900   ← cards
-color/surface/overlay     Light: neutral/200   Dark: neutral/800   ← modals (use /850 only if 0-1000 scale)
+color/surface/overlay     Light: neutral/200   Dark: neutral/800   ← modals
 color/surface/sunken      Light: neutral/200   Dark: neutral/800   ← inputs, wells
 
-— Scrim (role-based) —
-color/scrim/overlay     Light: scrim/black/40    Dark: scrim/black/60   ← modal backdrop
-color/scrim/hover       Light: scrim/black/8     Dark: scrim/white/8    ← hover state layer
-color/scrim/pressed     Light: scrim/black/12    Dark: scrim/white/12   ← pressed state layer
-color/scrim/disabled    Light: scrim/black/20    Dark: scrim/black/20   ← disabled wash
-color/scrim/selected    Light: scrim/black/12    Dark: scrim/white/16   ← selected state layer
+— Scrims / state layers (layered on content — composite contrast only) —
+color/scrim/overlay       Light: scrim/black/40    Dark: scrim/black/60
+color/scrim/hover         Light: scrim/black/8     Dark: scrim/white/8
+color/scrim/pressed       Light: scrim/black/12    Dark: scrim/white/12
+color/scrim/disabled      Light: scrim/black/20    Dark: scrim/black/20
+color/scrim/selected      Light: scrim/black/12    Dark: scrim/white/16
 
-— Shadow colors (role-based) —
-color/shadow/key        Light: scrim/black/20    Dark: scrim/white/20   ← directional shadow (white glow in dark mode = visible depth)
-color/shadow/ambient    Light: scrim/black/8     Dark: scrim/white/8    ← ambient fill shadow
+— Shadow colors —
+color/shadow/key          Light: scrim/black/20    Dark: scrim/white/20
+color/shadow/ambient      Light: scrim/black/8     Dark: scrim/white/8
 ```
 
-**Surface-based naming:**
+**Surface-based naming — paired surfaces:**
 
 ```
 Collection: Color / Semantics
 Modes: Light | Dark
 
-— Surfaces —
-color/surface/default          Light: neutral/50    Dark: neutral/950
-color/surface/variant          Light: neutral/100   Dark: neutral/900
-color/surface/brand            Light: [primary]/600 Dark: [primary]/500
-color/surface/brand-variant    Light: [primary]/50  Dark: [primary]/950
-color/surface/danger           Light: red/600       Dark: red/500
-color/surface/danger-variant   Light: red/50        Dark: red/950
-color/surface/success          Light: green/600     Dark: green/500
-color/surface/warning          Light: yellow/500    Dark: yellow/400
-color/surface/info             Light: blue/600      Dark: blue/500
+— Role: default ————————————————————————————————————————————————————————————————
+  bg:   color/surface/default      Light: neutral/50    Dark: neutral/950
+  ├─ text: color/on-surface/default Light: neutral/950  Dark: neutral/50
+  │        → Light: [X.X:1 ✓AA ✓AAA]   Dark: [X.X:1 ✓AA ✓AAA]
+  └─ text: color/on-surface/variant Light: neutral/700  Dark: neutral/300
+           → Light: [X.X:1 ✓AA]         Dark: [X.X:1 ✓AA]
 
-— On-surface (text / icons ON a surface) —
-color/on-surface/default       Light: neutral/950   Dark: neutral/50
-color/on-surface/variant       Light: neutral/700   Dark: neutral/300
-color/on-surface/disabled      Light: neutral/400   Dark: neutral/600
-color/on-surface/brand         Light: neutral/50    Dark: neutral/950
-color/on-surface/danger        Light: neutral/50    Dark: neutral/950
-color/on-surface/success       Light: neutral/50    Dark: neutral/950
-color/on-surface/warning       Light: neutral/950   Dark: neutral/950   ← yellow bg needs dark text
-color/on-surface/info          Light: neutral/50    Dark: neutral/950
+  bg:   color/surface/variant      Light: neutral/100   Dark: neutral/900
+  └─ text: color/on-surface/default (verify ratio on this bg)
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+
+— Role: brand ——————————————————————————————————————————————————————————————————
+  bg:   color/surface/brand        Light: [primary]/600  Dark: [primary]/500
+  └─ text: color/on-surface/brand  Light: neutral/50     Dark: neutral/950
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+
+  bg:   color/surface/brand-variant Light: [primary]/50  Dark: [primary]/950
+  └─ text: color/on-surface/default (verify ratio on this bg)
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+
+— Role: danger —————————————————————————————————————————————————————————————————
+  bg:   color/surface/danger       Light: red/600        Dark: red/500
+  └─ text: color/on-surface/danger Light: neutral/50     Dark: neutral/950
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+
+  bg:   color/surface/danger-variant Light: red/50       Dark: red/950
+  └─ text: color/on-surface/default  (verify ratio on this bg)
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+
+— Role: success ————————————————————————————————————————————————————————————————
+  bg:   color/surface/success      Light: green/600      Dark: green/500
+  └─ text: color/on-surface/success Light: neutral/50    Dark: neutral/950
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+
+— Role: warning ⚠ ——————————————————————————————————————————————————————————————
+  bg:   color/surface/warning      Light: yellow/500     Dark: yellow/400
+  └─ text: color/on-surface/warning Light: neutral/950   Dark: neutral/950  ← MUST be dark
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+
+— Role: info ———————————————————————————————————————————————————————————————————
+  bg:   color/surface/info         Light: blue/600       Dark: blue/500
+  └─ text: color/on-surface/info   Light: neutral/50     Dark: neutral/950
+           → Light: [X.X:1 ✓AA]   Dark: [X.X:1 ✓AA]
+```
+
+**Surface-based — unpaired tokens:**
+
+```
+— Disabled text —
+color/on-surface/disabled   Light: neutral/400   Dark: neutral/600  ← exempt per WCAG 1.4.3
 
 — Outline —
-color/outline/default          Light: neutral/300   Dark: neutral/700
-color/outline/subtle           Light: neutral/200   Dark: neutral/800
-color/outline/strong           Light: neutral/500   Dark: neutral/500
-color/outline/brand            Light: [primary]/500 Dark: [primary]/500
-color/outline/focus            Light: [primary]/500 Dark: [primary]/400
-color/outline/danger           Light: red/500       Dark: red/500
+color/outline/default       Light: neutral/300   Dark: neutral/700
+color/outline/subtle        Light: neutral/200   Dark: neutral/800
+color/outline/strong        Light: neutral/500   Dark: neutral/500
+color/outline/brand         Light: [primary]/500 Dark: [primary]/500
+color/outline/focus         Light: [primary]/500 Dark: [primary]/400  ← 3:1 vs adjacent bg
+color/outline/danger        Light: red/500       Dark: red/500
 
-— Overlay / state (surface-based) —
-color/overlay/scrim     Light: scrim/black/40    Dark: scrim/black/60
-color/state/hover       Light: scrim/black/8     Dark: scrim/white/8
-color/state/pressed     Light: scrim/black/12    Dark: scrim/white/12
-color/state/disabled    Light: scrim/black/20    Dark: scrim/black/20
-color/state/selected    Light: scrim/black/12    Dark: scrim/white/16
-
-— Shadow (surface-based) —
-color/shadow/key        Light: scrim/black/20    Dark: scrim/white/20
-color/shadow/ambient    Light: scrim/black/8     Dark: scrim/white/8
+— State / overlay / shadow —
+color/overlay/scrim    Light: scrim/black/40    Dark: scrim/black/60
+color/state/hover      Light: scrim/black/8     Dark: scrim/white/8
+color/state/pressed    Light: scrim/black/12    Dark: scrim/white/12
+color/state/disabled   Light: scrim/black/20    Dark: scrim/black/20
+color/state/selected   Light: scrim/black/12    Dark: scrim/white/16
+color/shadow/key       Light: scrim/black/20    Dark: scrim/white/20
+color/shadow/ambient   Light: scrim/black/8     Dark: scrim/white/8
 ```
 
-### Accessibility check
+🔴 **Any pair with ratio below 4.5:1 = STOP.** Suggest the nearest primitive step that achieves 4.5:1 minimum and confirm the adjustment with the user. Do not build until every paired surface passes.
 
-After showing the mapping, output a mandatory contrast verification table before building:
-
-```
-⚠️ WCAG 2.2 AA Contrast Verification — Light Mode
-
-color/text/default    on color/bg/default        → [ratio]:1  [PASS/FAIL AA]  [PASS/FAIL AAA]
-color/text/subtle     on color/bg/default        → [ratio]:1  [PASS/FAIL AA]
-color/text/muted      on color/bg/default        → [ratio]:1  [PASS/FAIL AA]  ← likely borderline
-color/text/on-brand   on color/bg/brand          → [ratio]:1  [PASS/FAIL AA]
-color/text/danger     on color/bg/danger-subtle  → [ratio]:1  [PASS/FAIL AA]
-color/text/success    on color/bg/success-subtle → [ratio]:1  [PASS/FAIL AA]
-color/text/warning    on color/bg/warning-subtle → [ratio]:1  [PASS/FAIL AA]  ← yellow often fails
-
-⚠️ WCAG 2.2 AA Contrast Verification — Dark Mode
-[same pairings with dark mode values]
-
-🔴 Any FAIL = flag it and suggest the nearest primitive step that achieves 4.5:1 minimum.
-💡 APCA note: dark mode body text should aim for Lc 75+, not just WCAG 4.5:1. Flag any dark text token below Lc 60.
-ℹ️ Scrim tokens are not text/bg pairs — they layer on top of content. Do not include in the ratio table. Verify composite contrast (bg + scrim + text) separately for hover/overlay states.
-```
-
-Confirm any failures with the user and adjust the primitive reference before building.
+Confirm the complete pair table with the user before building.
 
 ### Build Collection 2
 
@@ -436,103 +542,35 @@ Call `mcp__Figma__get_variable_defs`. If "Typography" collection already exists,
 
 ### Type scale preview
 
-Roles follow **Material 3 naming**: every category uses `lg` / `md` / `sm` suffixes. Modes: Mobile | Tablet | Desktop (+ Wide if 4-tier). Show the full table before building.
+Generate the preview table from `DS.typography.scale` and `DS.breakpoints.modes`. Do not use hardcoded values — every row comes from the config. Format:
 
 ```
-Collection: Typography
-Modes: Mobile | Tablet | Desktop
+Collection: [DS.collections.typography]
+Modes: [DS.breakpoints.modes.join(' | ')]
 
-— Display —
-type/display/lg/size          Mobile: 36    Tablet: 48    Desktop: 57
-type/display/lg/line-height   Mobile: 44    Tablet: 56    Desktop: 64
-type/display/lg/weight        700 (all)
-type/display/lg/tracking      -0.02 (all)
-type/display/lg/family        → alias: type/family/sans
-
-type/display/md/size          Mobile: 30    Tablet: 40    Desktop: 45
-type/display/md/line-height   Mobile: 38    Tablet: 48    Desktop: 52
-type/display/md/weight        700 (all)
-type/display/md/tracking      -0.02 (all)
-
-type/display/sm/size          Mobile: 24    Tablet: 32    Desktop: 36
-type/display/sm/line-height   Mobile: 32    Tablet: 40    Desktop: 44
-type/display/sm/weight        700 (all)
-type/display/sm/tracking      -0.01 (all)
-
-— Headline —
-type/headline/lg/size         Mobile: 22    Tablet: 28    Desktop: 32
-type/headline/lg/line-height  Mobile: 30    Tablet: 36    Desktop: 40
-type/headline/lg/weight       700 (all)
-type/headline/lg/tracking     -0.01 (all)
-
-type/headline/md/size         Mobile: 20    Tablet: 24    Desktop: 28
-type/headline/md/line-height  Mobile: 28    Tablet: 32    Desktop: 36
-type/headline/md/weight       700 (all)
-
-type/headline/sm/size         Mobile: 18    Tablet: 20    Desktop: 24
-type/headline/sm/line-height  Mobile: 26    Tablet: 28    Desktop: 32
-type/headline/sm/weight       600 (all)
-
-— Title —
-type/title/lg/size            Mobile: 18    Tablet: 20    Desktop: 22
-type/title/lg/line-height     Mobile: 26    Tablet: 28    Desktop: 28
-type/title/lg/weight          600 (all)
-type/title/lg/tracking        0 (all)
-
-type/title/md/size            Mobile: 14    Tablet: 16    Desktop: 16
-type/title/md/line-height     Mobile: 22    Tablet: 24    Desktop: 24
-type/title/md/weight          600 (all)
-type/title/md/tracking        0.01 (all)
-
-type/title/sm/size            Mobile: 12    Tablet: 14    Desktop: 14
-type/title/sm/line-height     Mobile: 18    Tablet: 20    Desktop: 20
-type/title/sm/weight          600 (all)
-type/title/sm/tracking        0.01 (all)
-
-— Body —
-type/body/lg/size             Mobile: 16    Tablet: 16    Desktop: 16
-type/body/lg/line-height      Mobile: 26    Tablet: 26    Desktop: 26
-type/body/lg/weight           400 (all)
-type/body/lg/tracking         0 (all)
-
-type/body/md/size             Mobile: 14    Tablet: 14    Desktop: 14
-type/body/md/line-height      Mobile: 22    Tablet: 22    Desktop: 22
-type/body/md/weight           400 (all)
-type/body/md/tracking         0 (all)
-
-type/body/sm/size             Mobile: 12    Tablet: 12    Desktop: 12
-type/body/sm/line-height      Mobile: 18    Tablet: 18    Desktop: 18
-type/body/sm/weight           400 (all)
-type/body/sm/tracking         0 (all)
-
-— Label —
-type/label/lg/size            Mobile: 14    Tablet: 14    Desktop: 14
-type/label/lg/line-height     Mobile: 20    Tablet: 20    Desktop: 20
-type/label/lg/weight          600 (all)
-type/label/lg/tracking        0.01 (all)
-
-type/label/md/size            Mobile: 12    Tablet: 12    Desktop: 12
-type/label/md/line-height     Mobile: 16    Tablet: 16    Desktop: 16
-type/label/md/weight          500 (all)
-type/label/md/tracking        0.01 (all)
-
-type/label/sm/size            Mobile: 11    Tablet: 11    Desktop: 11
-type/label/sm/line-height     Mobile: 14    Tablet: 14    Desktop: 14
-type/label/sm/weight          500 (all)
-type/label/sm/tracking        0.02 (all)
+— [category] —
+[tokenName(role, size)]/size          [modes: sizes from DS.typography.scale[role/size].sizes]
+[tokenName(role, size)]/line-height   [modes: lineHeights]
+[tokenName(role, size)]/weight        [weight] (all modes)
+[tokenName(role, size)]/tracking      [tracking] (all modes)
 ```
 
-> ⚠️ **Accessibility**: `type/body/md` and all body roles must be ≥14px on Mobile, ≥16px on Tablet/Desktop when used as body copy. `type/label/sm` at 11px is below WCAG recommended minimums — acceptable only for non-critical decorative labels (timestamps, fine print). Never use for interactive labels, error messages, or form inputs.
+Show all 15 roles grouped by category (Display / Headline / Title / Body / Label). After the table, add accessibility notes for any role where the smallest size is below 14px — flag it as decorative-only.
+
+Ask: "Does this scale look right? Any roles to adjust before I build?"  Apply any changes to `DS.typography.scale` in the config before proceeding.
 
 ### Build Collection 3
 
-1. Create "Typography" collection with Mobile, Tablet, Desktop modes (+ Wide if 4-tier).
-2. `use_figma` for all Number (size, line-height, weight, tracking) and String (family) variables, values set per mode.
-3. Family variables alias to Collection 1 `type/family/*` primitives.
+1. Call `run_skill_script("fig-setup/scripts/create-typography-vars.js")` then run result via `use_figma`. The script creates the collection with Mobile/Tablet/Desktop modes (+ Wide if `DS.breakpoints.tier >= 4`) and applies the following alias strategy:
+   - **weight** → always aliased to `type/weight/*` primitive (400/500/600/700 all have matches)
+   - **tracking** → aliased to `type/tracking/*` where exact match exists; raw value otherwise
+   - **family** → aliased to `type/family/sans` primitive
+   - **size** → aliased to `type/size/*` where the px value exists in the primitive scale; raw otherwise
+   - **line-height** → raw computed px per mode (primitives store ratio multipliers, not px)
 
 ### Create Figma Text Styles (required — do not skip)
 
-After variables are built, create one Figma Text Style per role and bind every property to the corresponding Typography variable. Read `~/.claude/skills/fig-setup/scripts/create-text-styles.js` then run via `use_figma`.
+After variables are built, create one Figma Text Style per role and bind every property to the corresponding Typography variable. Call `run_skill_script("fig-setup/scripts/create-text-styles.js")` then run result via `use_figma`. The script prefers variables from the Typography collection so styles bind to Collection 3 (which then aliases into Collection 1) — not directly to primitives.
 
 > **Note on fontFamily binding**: `setBoundVariable('fontFamily', var)` binds a String variable to the style's font family. If it throws on the user's Figma version, fall back to `style.fontName = { family: resolvedFamilyValue, style: 'Regular' }` and log a warning.
 
@@ -655,7 +693,7 @@ Shadow colors alias `color/shadow/key` and `color/shadow/ambient` from Collectio
 
 1. The FLOAT shadow primitive variables (`shadow/*/offset-y`, `shadow/*/radius`, `shadow/ambient/*/radius`) were created as part of Collection 1 (1A-iii). Verify they exist before proceeding.
 2. The COLOR shadow aliases (`color/shadow/key`, `color/shadow/ambient`) were created in Collection 2. Resolve their variable IDs.
-3. Read `~/.claude/skills/fig-setup/scripts/create-elevation-styles.js` then run via `use_figma` to create `elevation/0` through `elevation/5` with bound variables.
+3. Call `run_skill_script("fig-setup/scripts/create-elevation-styles.js")` then run result via `use_figma` to create `elevation/0` through `elevation/5` with bound variables.
 
 > ⚠️ **Binding order matters**: each `setBoundVariableForEffect` call takes the *previous call's return value* as input. `bindEffectField` in the script wraps this safely — do not modify the call chain.
 
@@ -720,6 +758,8 @@ If yes:
 1. Check if a `00 · Tokens` page exists via `use_figma`. If not, create it with `figma.createPage()` and set as current page.
 2. Build a vertical auto-layout frame named `Token Showcase — [Project Name]`.
 
+**For every `use_figma` call in the showcase phase**, use `run_skill_script` with an array: `["shared/parse-variables.js", "shared/bind-helpers.js", "fig-setup/scripts/showcase-NAME.js"]`. This bundles shared utilities and the showcase script in a single opaque call — do not read the scripts individually.
+
 **The outer frame uses the design system:**
 - Background fill: bound to `color/bg/default` semantic variable via `setBoundVariableForPaint`
 - Vertical gap (`itemSpacing`): bound to `space/layout/md` via `frame.setBoundVariable('itemSpacing', var)`
@@ -731,45 +771,41 @@ If yes:
 
 Each color ramp = one horizontal auto-layout row. Each step = a vertical swatch column:
 
-See `~/.claude/skills/fig-setup/scripts/showcase-color.js` — Section A pattern.
+Call `run_skill_script(["shared/parse-variables.js", "shared/bind-helpers.js", "fig-setup/scripts/showcase-color.js"])` then run result via `use_figma` — Section A (primitive ramps).
 
-WCAG 2.2 AA = 4.5:1 normal text, 3:1 large text / icons.
+Each step shows: color swatch + step name + hex value. No contrast badges — primitives have no inherent accessibility value without a pairing context. The contrast analysis for which steps are safe to use as text was already shown in the Phase 1A preview.
 
 ### Color section B — semantic pairs
 
 Shows the actual bg/text pairings the design system enforces. Each row = one semantic pair.
 
-See `~/.claude/skills/fig-setup/scripts/showcase-color.js` — Section B pattern.
+Call `run_skill_script(["shared/parse-variables.js", "shared/bind-helpers.js", "fig-setup/scripts/showcase-color.js"])` then run result via `use_figma` — Section B (semantic pairs).
 
 Switching the showcase frame's Color/Semantics mode (Light ↔ Dark) updates all semantic swatches live — this is the visual test the showcase is designed for.
 
 ### Typography section — use Text Styles
 
-See `~/.claude/skills/fig-setup/scripts/showcase-typography.js`.
+Call `run_skill_script(["shared/parse-variables.js", "shared/bind-helpers.js", "fig-setup/scripts/showcase-typography.js"])` then run result via `use_figma`.
 
 The text style handles all font property bindings. Text fill must still be explicitly bound to a semantic color variable.
 
 ### Spacing section — widths bound to variables
 
-See `~/.claude/skills/fig-setup/scripts/showcase-spacing.js` — spacing bars pattern.
+Call `run_skill_script(["shared/parse-variables.js", "shared/bind-helpers.js", "fig-setup/scripts/showcase-spacing.js"])` then run result via `use_figma` (spacing bars, border radius, and border width sections are all handled by this script).
 
 ### Border radius section
 
-Each `space/radius/*` token = one rounded rectangle:
-
-See `~/.claude/skills/fig-setup/scripts/showcase-spacing.js` — border radius pattern.
+Each `space/radius/*` token = one rounded rectangle (built by showcase-spacing.js — see above).
 
 ### Border width section
 
-Each `space/border/*` token = one outlined rectangle with no fill:
-
-See `~/.claude/skills/fig-setup/scripts/showcase-spacing.js` — border width pattern.
+Each `space/border/*` token = one outlined rectangle with no fill (built by showcase-spacing.js — see above).
 
 ### Scrim section
 
 Shows each semantic scrim token as a before/after demo: content bg alone vs. content bg + scrim layered on top. Uses multiple fills on a single frame (Figma stacks fills top-to-bottom).
 
-See `~/.claude/skills/fig-setup/scripts/showcase-scrim.js`.
+Call `run_skill_script(["shared/parse-variables.js", "shared/bind-helpers.js", "fig-setup/scripts/showcase-scrim.js"])` then run result via `use_figma`.
 
 Switching Light ↔ Dark mode on the frame changes the scrim value (e.g. hover switches from `scrim/black/8` to `scrim/white/8`) — this is the live test.
 
@@ -777,7 +813,7 @@ Switching Light ↔ Dark mode on the frame changes the scrim value (e.g. hover s
 
 One card per elevation level, each with the corresponding Effect Style applied.
 
-See `~/.claude/skills/fig-setup/scripts/showcase-elevation.js`.
+Call `run_skill_script(["shared/parse-variables.js", "shared/bind-helpers.js", "fig-setup/scripts/showcase-elevation.js"])` then run result via `use_figma`.
 
 Switching Light ↔ Dark mode changes the shadow color via `color/shadow/key` and `color/shadow/ambient` — dark mode uses white-based scrims (`scrim/white/20` / `scrim/white/8`) to create a subtle light glow effect. Black shadows on dark surfaces have near-zero contrast and are invisible; white shadows simulate a light source lifting the surface above the canvas.
 

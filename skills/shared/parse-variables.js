@@ -35,18 +35,43 @@ for (const v of _allVars.filter(v => v.resolvedType === 'COLOR')) {
   }
 }
 
-// FLOAT variables related to spacing/layout
+// Resolve a variable's numeric value — handles both raw floats and one-level aliases.
+function _resolveFloat(v) {
+  const raw = Object.values(v.valuesByMode)[0];
+  if (typeof raw === 'number') return raw;
+  if (raw && raw.type === 'VARIABLE_ALIAS') {
+    const target = _allVars.find(x => x.id === raw.id);
+    if (target) {
+      const targetVal = Object.values(target.valuesByMode)[0];
+      if (typeof targetVal === 'number') return targetVal;
+    }
+  }
+  return null;
+}
+
+// FLOAT variables related to spacing/layout.
+// When two variables share the same resolved value, prefer the more specific one
+// (more path segments = component-scoped token wins over generic primitive).
 const _spacingKw = /space|spacing|gap|padding|margin|radius|width|height|border/i;
 const spacingVarByValue = {};
 for (const v of _allVars.filter(v => v.resolvedType === 'FLOAT' && _spacingKw.test(v.name))) {
-  const val = Object.values(v.valuesByMode)[0];
-  if (typeof val === 'number') spacingVarByValue[val] = v;
+  const val = _resolveFloat(v);
+  if (val === null) continue;
+  const existing = spacingVarByValue[val];
+  if (!existing || v.name.split('/').length > existing.name.split('/').length) {
+    spacingVarByValue[val] = v;
+  }
 }
 
-// FLOAT variables related to typography
+// FLOAT variables related to typography.
+// Same specificity preference: longer path wins.
 const _typographyKw = /font|size|line|tracking|letter|weight/i;
 const typographyVarByValue = {};
 for (const v of _allVars.filter(v => v.resolvedType === 'FLOAT' && _typographyKw.test(v.name))) {
-  const val = Object.values(v.valuesByMode)[0];
-  if (typeof val === 'number') typographyVarByValue[val] = v;
+  const val = _resolveFloat(v);
+  if (val === null) continue;
+  const existing = typographyVarByValue[val];
+  if (!existing || v.name.split('/').length > existing.name.split('/').length) {
+    typographyVarByValue[val] = v;
+  }
 }

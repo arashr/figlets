@@ -13,7 +13,9 @@ function collectValues(node, results = { colors: new Set(), floats: new Set() })
   });
 
   ['paddingTop','paddingBottom','paddingLeft','paddingRight','itemSpacing',
-   'counterAxisSpacing','fontSize','cornerRadius'].forEach(prop => {
+   'counterAxisSpacing','fontSize','cornerRadius',
+   'strokeWeight','strokeTopWeight','strokeBottomWeight',
+   'strokeLeftWeight','strokeRightWeight'].forEach(prop => {
     const val = node[prop];
     if (val && typeof val === 'number' && val !== 0 && !node.boundVariables?.[prop]) {
       results.floats.add(val);

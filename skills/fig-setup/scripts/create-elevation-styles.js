@@ -52,3 +52,5 @@ for (const def of levels) {
 
   style.effects = effects;
 }
+
+return `Elevation styles built: elevation/0–${levels[levels.length - 1].level} (${levels.length + 1} styles).`;

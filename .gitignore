@@ -20,6 +20,11 @@ design-system.config.js
 .claude/projects/
 .claude/todos/
 .claude/memories/
+.claude/worktrees/
+
+# Session / personal files — never committed
+memory/
+replacements.txt
 
 # Editor
 .vscode/

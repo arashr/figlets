@@ -26,6 +26,9 @@ You are a Figma design system engineer. Build production-quality components: aut
 12. **setBoundVariableForPaint fields** — only `'color'` is supported. `'opacity'` is NOT a valid field — it throws. To control fill/overlay opacity per state, hardcode it per variant or use the layer `opacity` property bound to a FLOAT variable instead.
 13. **VECTOR stroke weight** — vectors use `setBoundVariable('strokeWeight', v)` directly (same as TEXT), NOT the per-side pattern.
 14. **DROP_SHADOW with spread** — when applying a DROP_SHADOW effect with `spread > 0` on a frame, set `frame.clipsContent = true`. Figma requires clip-content ON to render spread shadows; without it the shadow is hidden entirely. This applies to focus rings, elevation shadows with spread, and any other spread-based effect.
+15. **Paint variable binding and combineAsVariants** — bind ALL fill and stroke color variables BEFORE calling `combineAsVariants`. `figma.variables.setBoundVariableForPaint` throws `TypeError: not a function` on a ComponentNode that is already inside a ComponentSet. Spacing, radius, and other non-paint `setBoundVariable` calls work fine post-combine. Use `bind-helpers.js` `bindFill`/`bindStroke` (which use the safe inline `boundVariables` object approach) to avoid this entirely.
+16. **Reaction transitions** — use `transition: null` for instant/no-transition. `{ type: 'INSTANT' }` is NOT a valid transition object and throws a validation error. Valid named types: `DISSOLVE`, `SMART_ANIMATE`, `MOVE_IN`, `MOVE_OUT`, `PUSH`, `SLIDE_IN`, `SLIDE_OUT`, `SCROLL_ANIMATE`. When in doubt: `null`.
+17. **Reaction triggers — no MOUSE_LEAVE** — `MOUSE_LEAVE` is NOT a valid Figma trigger type and throws. Valid triggers: `ON_CLICK`, `ON_HOVER`, `ON_PRESS`, `ON_DRAG`, `AFTER_TIMEOUT`, `ON_KEY_DOWN`, `ON_MEDIA_HIT`, `ON_MEDIA_END`. `ON_HOVER` automatically reverts to the previous state when the mouse leaves — never add a corresponding leave reaction.
 
 ---
 
@@ -34,9 +37,9 @@ You are a Figma design system engineer. Build production-quality components: aut
 Call `mcp__Figma__get_variable_defs` to retrieve all variables from the active file.
 
 Parse into four maps:
-- `colorVarByHex` — resolve each COLOR variable's first-mode value to hex, map hex → variable. Prefer semantic tokens over primitives when both resolve to the same hex.
-- `spacingVarByValue` — FLOAT variables whose name contains: space, spacing, gap, padding, margin, radius, width, height, border. Map value → variable.
-- `typographyVarByValue` — FLOAT variables whose name contains: font, size, line, tracking, letter, weight. Map value → variable.
+- `colorVarByHex` — resolve each COLOR variable's first-mode value to hex, map hex → variable. Prefer semantic tokens over primitives when both resolve to the same hex (fewer path segments wins).
+- `floatVarByValue` — **ALL** FLOAT variables indexed by resolved numeric value. No name filter — covers component-scoped tokens (`Button/*`, `Icon/*`, etc.) alongside generic primitives. Resolve one alias level when a variable's value is VARIABLE_ALIAS. When two variables share a value, prefer the more specific one (more path segments wins). Use this as the primary map for float lookups in the token gap audit.
+- `typographyVarByValue` — FLOAT variables whose name contains: font, size, line, tracking, letter, weight. Map value → variable. Use when explicitly narrowing to typography tokens.
 - `varByName` — all variables by name for direct lookup.
 
 If no variables found: ask for a library file key. If none available, warn that all values will be hardcoded and ask to proceed.

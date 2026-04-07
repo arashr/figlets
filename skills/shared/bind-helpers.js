@@ -7,17 +7,19 @@ allVars.forEach(v => { varByName[v.name] = v; });
 function bindFill(node, varName) {
   const v = varByName[varName];
   if (!v || !node.fills?.length) return;
-  const fills = JSON.parse(JSON.stringify(node.fills));
-  fills[0] = figma.variables.setBoundVariableForPaint(fills[0], 'color', v);
-  node.fills = fills;
+  // Use inline boundVariables assignment — works on ComponentNodes inside a ComponentSet
+  // (post-combineAsVariants) where figma.variables.setBoundVariableForPaint throws TypeError.
+  node.fills = node.fills.map((f, i) => i === 0
+    ? { ...f, boundVariables: { color: { type: 'VARIABLE_ALIAS', id: v.id } } }
+    : f);
 }
 
 function bindStroke(node, varName) {
   const v = varByName[varName];
   if (!v || !node.strokes?.length) return;
-  const strokes = JSON.parse(JSON.stringify(node.strokes));
-  strokes[0] = figma.variables.setBoundVariableForPaint(strokes[0], 'color', v);
-  node.strokes = strokes;
+  node.strokes = node.strokes.map((s, i) => i === 0
+    ? { ...s, boundVariables: { color: { type: 'VARIABLE_ALIAS', id: v.id } } }
+    : s);
 }
 
 function bindNum(node, prop, varName) {

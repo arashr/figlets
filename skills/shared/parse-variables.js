@@ -75,3 +75,17 @@ for (const v of _allVars.filter(v => v.resolvedType === 'FLOAT' && _typographyKw
     typographyVarByValue[val] = v;
   }
 }
+
+// ALL FLOAT variables indexed by resolved value — no keyword filter.
+// Catches component-scoped tokens (Button/*, Icon/*, etc.) that don't match
+// the spacing or typography keyword patterns.
+// Same specificity preference: longer path (more specific) wins.
+const floatVarByValue = {};
+for (const v of _allVars.filter(v => v.resolvedType === 'FLOAT')) {
+  const val = _resolveFloat(v);
+  if (val === null) continue;
+  const existing = floatVarByValue[val];
+  if (!existing || v.name.split('/').length > existing.name.split('/').length) {
+    floatVarByValue[val] = v;
+  }
+}

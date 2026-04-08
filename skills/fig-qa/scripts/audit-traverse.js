@@ -1,3 +1,6 @@
+// Requires detect-ds-context.js pasted above (provides DS_CONTEXT).
+// Returns JSON: { typographyStrategy, violations[] }
+
 function auditNode(node) {
   if (node.type === 'INSTANCE') return [];
   const violations = [];
@@ -56,10 +59,31 @@ function auditNode(node) {
     });
   }
 
-  // Font size
-  if (node.type === 'TEXT' && node.fontSize !== figma.mixed && !node.boundVariables?.fontSize) {
-    violations.push({ nodeId: node.id, nodeName: name, nodeType: node.type,
-      property: 'Font size', rawValue: `${node.fontSize}px`, type: 'typography' });
+  // Typography — strategy driven by DS_CONTEXT.typographyStrategy:
+  //   'text-styles' → require textStyleId (bundles all properties)
+  //   'variables'   → require boundVariables.fontSize (variable-only DS)
+  //   'none'        → flag if fontSize is raw (no tokens available to suggest)
+  if (node.type === 'TEXT') {
+    const strat = DS_CONTEXT.typographyStrategy;
+    if (strat === 'text-styles') {
+      if (!node.textStyleId) {
+        const fs = node.fontSize !== figma.mixed ? `${node.fontSize}px` : 'mixed';
+        violations.push({ nodeId: node.id, nodeName: name, nodeType: node.type,
+          property: 'Text style', rawValue: fs, type: 'typography' });
+      }
+    } else if (strat === 'variables') {
+      if (node.fontSize !== figma.mixed && !node.boundVariables?.fontSize) {
+        violations.push({ nodeId: node.id, nodeName: name, nodeType: node.type,
+          property: 'Font size', rawValue: `${node.fontSize}px`, type: 'typography' });
+      }
+    } else {
+      // No tokens at all — flag as raw if unbound, for user awareness
+      if (node.fontSize !== figma.mixed && !node.textStyleId && !node.boundVariables?.fontSize) {
+        violations.push({ nodeId: node.id, nodeName: name, nodeType: node.type,
+          property: 'Font size', rawValue: `${node.fontSize}px`, type: 'typography',
+          note: 'No text styles or typography variables found in this file' });
+      }
+    }
   }
 
   if ('children' in node) node.children.forEach(c => violations.push(...auditNode(c)));
@@ -72,4 +96,5 @@ const scope = figma.currentPage.selection.length > 0
 
 const allViolations = [];
 scope.forEach(node => allViolations.push(...auditNode(node)));
-return JSON.stringify(allViolations);
+// Return typographyStrategy so the AI knows which fix path to take
+return JSON.stringify({ typographyStrategy: DS_CONTEXT.typographyStrategy, violations: allViolations });

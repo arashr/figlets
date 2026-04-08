@@ -3,12 +3,20 @@
 // wrapper binding, boolean property, component description, variable mode binding loop,
 // and instance type mode set.
 
+// Requires detect-ds-context.js pasted above (provides DS_CONTEXT).
+
 // ── NODE CREATION ORDER ───────────────────────────────────────────────────────
 
-// 1. Load fonts first
-await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
-await figma.loadFontAsync({ family: 'Inter', style: 'Semi Bold' });
-await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
+// 1. Load fonts first — use the family detected from DS_CONTEXT, never hardcode
+// Read detected family from text styles or string variables:
+const _detectedFamily = DS_CONTEXT.hasTextStyles
+  ? (Object.values(DS_CONTEXT.textStyleByName)[0]?.fontName?.family || 'Inter')
+  : (Object.values(DS_CONTEXT.varByName).find(v => v.resolvedType === 'STRING' && /family/i.test(v.name))
+      ? Object.values(Object.values(DS_CONTEXT.varByName).find(v => v.resolvedType === 'STRING' && /family/i.test(v.name)).valuesByMode)[0]
+      : 'Inter');
+await figma.loadFontAsync({ family: _detectedFamily, style: 'Regular' });
+await figma.loadFontAsync({ family: _detectedFamily, style: 'Semi Bold' });
+await figma.loadFontAsync({ family: _detectedFamily, style: 'Bold' });
 
 // 2. Create node and set non-layout properties
 const comp = figma.createComponent();
@@ -33,16 +41,50 @@ child.layoutSizingHorizontal = 'FILL'; // AFTER appendChild
 
 // ── TEXT NODE PATTERN ─────────────────────────────────────────────────────────
 
+// DS_CONTEXT.typographyStrategy drives how text nodes are bound:
+//   'text-styles' → apply textStyleId (bundles fontSize, lineHeight, weight, tracking, family)
+//   'variables'   → bind individual FLOAT variables (fontSize at minimum)
+//   'none'        → no tokens available; note as gap in build summary
+
+// Lookup by name (exact), then nearest by fontSize within the same role prefix.
+// Returns true if a style was applied, false otherwise.
+function applyTextStyle(node, styleName) {
+  if (!DS_CONTEXT.hasTextStyles) return false;
+  const style = DS_CONTEXT.textStyleByName[styleName];
+  if (style) { node.textStyleId = style.id; return true; }
+  // Nearest within same role prefix (e.g. 'body/' for 'body/md')
+  const role = styleName.split('/')[0];
+  const target = node.fontSize;
+  let nearest = null, nearestDist = Infinity;
+  for (const s of Object.values(DS_CONTEXT.textStyleByName)) {
+    if (!s.name.startsWith(role + '/')) continue;
+    const dist = Math.abs((s.fontSize || 0) - target);
+    if (dist < nearestDist) { nearest = s; nearestDist = dist; }
+  }
+  if (nearest) { node.textStyleId = nearest.id; return true; }
+  return false;
+}
+
+// Font must still be loaded before setting fontName / characters.
+// _detectedFamily is set in the NODE CREATION ORDER block above.
+await figma.loadFontAsync({ family: _detectedFamily, style: 'Regular' });
+
 const label = figma.createText();
-label.fontName = { family: 'Inter', style: 'Regular' };
+label.fontName = { family: _detectedFamily, style: 'Regular' };
 label.characters = 'Label text';
-label.fontSize = 16;
 label.fills = [{ type: 'SOLID', color: { r, g, b } }];
-comp.appendChild(label);           // append first
+comp.appendChild(label);               // append first
 label.layoutSizingHorizontal = 'FILL'; // then FILL
 label.textAutoResize = 'HEIGHT';       // then textAutoResize
-bindFill(label, 'ink-black');
-bindNum(label, 'fontSize', 'body');
+bindFill(label, 'token-name');
+
+// Apply typography — strategy from DS_CONTEXT
+if (DS_CONTEXT.typographyStrategy === 'text-styles') {
+  applyTextStyle(label, 'body/md'); // substitute correct style name from DS
+} else if (DS_CONTEXT.typographyStrategy === 'variables') {
+  bindNum(label, 'fontSize', 'typography/body/md/size'); // substitute correct variable name
+}
+// 'none' → leave unbound, flag as token gap in build summary
 
 // ── COMPONENT TEXT PROPERTY ───────────────────────────────────────────────────
 

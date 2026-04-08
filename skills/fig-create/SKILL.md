@@ -41,17 +41,24 @@ You are a Figma design system engineer. Build production-quality components: aut
 
 ---
 
-## Step 1 — Load variables
+## Step 1 — Detect DS context
 
-Call `mcp__Figma__get_variable_defs` to retrieve all variables from the active file.
+Read `~/.claude/skills/shared/detect-ds-context.js` — paste at the top of every `use_figma` build script in this session. This inspects the file and populates:
 
-Parse into four maps:
-- `colorVarByHex` — resolve each COLOR variable's first-mode value to hex, map hex → variable. Prefer semantic tokens over primitives when both resolve to the same hex (fewer path segments wins).
-- `floatVarByValue` — **ALL** FLOAT variables indexed by resolved numeric value. No name filter — covers component-scoped tokens (`Button/*`, `Icon/*`, etc.) alongside generic primitives. Resolve one alias level when a variable's value is VARIABLE_ALIAS. When two variables share a value, prefer the more specific one (more path segments wins). Use this as the primary map for float lookups in the token gap audit.
-- `typographyVarByValue` — FLOAT variables whose name contains: font, size, line, tracking, letter, weight. Map value → variable. Use when explicitly narrowing to typography tokens.
-- `varByName` — all variables by name for direct lookup.
+| Name | What it is |
+|---|---|
+| `varByName` | All variables by name |
+| `colorVarByHex` | COLOR vars by hex (semantic preferred over primitive) |
+| `floatVarByValue` | All FLOAT vars by resolved value (more specific wins) |
+| `typographyVarByValue` | FLOAT vars with font/size/line/tracking/weight names |
+| `spacingVarByValue` | FLOAT vars with space/gap/padding/radius names |
+| `textStyleByName` | Local text styles by name; `hasTextStyles` boolean |
+| `effectStyleByName` | Local effect styles by name; `hasEffectStyles` boolean |
+| `collectionByName` | Variable collections by name |
+| `typographyStrategy` | `'text-styles'` · `'variables'` · `'none'` |
+| `rgbDist(a,b)` | Euclidean RGB distance helper |
 
-If no variables found: follow the contract — ask the user how to proceed. Options: (1) reload or provide a different file key, (2) provide an independent shared library URL or file key to fetch, (3) run `/fig-setup` to create one.
+**If nothing is found** (no variables, no text styles, no effect styles): ask the user how to proceed — do not assume `/fig-setup` is required. Options: (1) reload or provide a different file key, (2) provide a shared library URL or file key, (3) the DS has not been set up yet.
 
 ---
 
@@ -224,6 +231,16 @@ Read `~/.claude/skills/fig-create/scripts/effect-preservation.js` then run via `
 Report which path was taken in the build summary.
 
 ---
+
+### Typography — adaptive DS detection
+
+Use the strategy detected in Step 1:
+
+**DS has text styles:** Apply `textStyleId` to every text node using `applyTextStyle(node, styleName)` from `node-patterns.js`. A text style binds fontSize, lineHeight, weight, tracking, and family in one call — do not also call `bindNum` for individual font properties afterward. Match each node to the nearest style by role/size name. If no match at all, flag as a token gap.
+
+**DS has no text styles (variable-only):** Bind at minimum `fontSize` via `bindNum(node, 'fontSize', varName)`. Also bind `lineHeight`, `letterSpacing`, `fontWeight` if matching variables exist. Look up candidates in `typographyVarByValue` built in Step 1.
+
+**Neither text styles nor typography variables exist:** Flag as a token gap. Do not hardcode raw values. Note it in the build summary and suggest the user set up typography tokens.
 
 ### Variable binding helpers
 

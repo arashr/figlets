@@ -26,9 +26,14 @@ If $ARGUMENTS is empty: call `mcp__Figma__get_design_context` (no params). If so
 
 ---
 
-## Step 2 — Load variables
+## Step 2 — Detect DS context
 
-Call `mcp__Figma__get_variable_defs`. If none returned: ask for a library file URL or file key and retry.
+Read `~/.claude/skills/shared/detect-ds-context.js` — paste at the top of the traverse script (Step 3). This is the shared DS detection used by fig-create, fig-qa, and fig-document — all three see the same `DS_CONTEXT` shape, so strategies are consistent across the workflow.
+
+The traverse script returns `{ typographyStrategy, violations[] }`. Use `typographyStrategy` to know which fix path to take in Step 4:
+- `'text-styles'` → violations are property `'Text style'` — suggest nearest text style by name
+- `'variables'` → violations are property `'Font size'` — suggest nearest variable from `typographyVarByValue`
+- `'none'` → no tokens available; report as unfixable, suggest setting up typography tokens
 
 ---
 
@@ -48,12 +53,14 @@ Read `~/.claude/skills/fig-qa/scripts/audit-traverse.js` then run via `use_figma
 
 ---
 
-## Step 4 — Match violations to nearest variable
+## Step 4 — Match violations to nearest token
 
 Resolve COLOR variables to hex via first-mode value. Build hex → variable map.
 
 - **Color:** Convert rgb to hex. Exact match first, then nearest by Euclidean RGB distance avg. Distance > 30 → suggest "No close variable — consider creating one."
-- **Spacing / border / typography:** Nearest FLOAT variable. Prefer exact. Note if approximated.
+- **Spacing / border:** Nearest FLOAT variable. Prefer exact. Note if approximated.
+- **Typography (`hasTextStyles: true`):** Match the node's current font size to the text style with the nearest `fontSize`. Suggest the style by name. Pass the style name as `suggestedVarName` to the fix script (it routes on `property === 'Text style'`).
+- **Typography (`hasTextStyles: false`):** Nearest FLOAT variable from `typographyVarByValue`. Pass the variable name as `suggestedVarName` to the fix script (routes on `property === 'Font size'`).
 
 ---
 

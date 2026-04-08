@@ -51,10 +51,12 @@ Before asking any questions, check for an existing config file:
   - **Start fresh** → delete the config, run full intake below.
 
 **If no config exists:**
-- Run detect: call `run_skill_script("fig-setup/scripts/detect-design-system.js")` then run result via `use_figma`.
+- Run detect: Read `~/.claude/skills/fig-setup/scripts/detect-design-system.js` then run via `use_figma`.
 - Parse the returned JSON. For each field in `_meta.detectedFields`, present the detected value and confirm: "Detected [field]: [value] — correct?"
 - Ask only the questions in `_meta.needsInput` (skip already-detected fields).
 - After all answers collected, write `design-system.config.js` in the working directory using the confirmed values.
+
+**If updating an existing DS** (user chose "Update it" or is adding collections to an existing system): also read `~/.claude/skills/shared/detect-ds-context.js` and run via `use_figma`. This gives the runtime view of what already exists (variable collections, text styles, effect styles) so the update can build on top of it rather than overwriting. Use `DS_CONTEXT.collectionByName` to check what collections already exist before creating new ones.
 
 **After intake or config load:** proceed to Architecture Overview.
 

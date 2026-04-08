@@ -12,8 +12,21 @@ You are a Figma documentation engineer. Generate a complete spec sheet inside Fi
 
 ## Shared design system contract
 
-- **Same library as fig-create and fig-qa:** Token bindings documented here must reference variables from the collection `/fig-setup` created. Collection names come from `DS.collections.*`.
-- **No variables found → ask, don't assume:** If `get_variable_defs` returns variables, proceed automatically. If it returns nothing or is missing expected collections, ask the user how to proceed — do not auto-demand `/fig-setup`. Options to offer: (1) the library lives in this file but needs a reload or different file key, (2) they use an independent shared library — ask for its URL or file key and fetch it, (3) no library exists yet — suggest running `/fig-setup` to create one.
+- **DS-independent:** Token bindings documented here come from whatever library the file uses — variables, text styles, or effect styles. There is no assumption that `/fig-setup` created them.
+- **Same context as fig-create and fig-qa:** All three skills use `detect-ds-context.js` so the token names and strategies are consistent throughout the workflow.
+- **No tokens found → ask, don't assume:** If nothing is found, ask the user how to proceed. Options: (1) the library lives in this file but needs a reload or different file key, (2) they use an independent shared library — ask for its URL or file key, (3) the DS has not been set up yet.
+
+---
+
+## Step 0 — Detect DS context
+
+Read `~/.claude/skills/shared/detect-ds-context.js` — paste at the top of every `use_figma` script in this session. Provides the same `DS_CONTEXT` as fig-create and fig-qa so token names, typography strategy, and effect style names are consistent.
+
+Specifically used in this skill:
+- `DS_CONTEXT.colorVarByHex` + `DS_CONTEXT.floatVarByValue` — resolve token names for the bindings table
+- `DS_CONTEXT.textStyleByName` — identify text style tokens (from `read-bindings.js`)
+- `DS_CONTEXT.hasEffectStyles` + `DS_CONTEXT.effectStyleByName` — note elevation/shadow token names if present
+- `DS_CONTEXT.typographyStrategy` — determines how to label typography rows in the token table
 
 ---
 

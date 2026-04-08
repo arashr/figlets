@@ -4,7 +4,7 @@ All notable changes to figlets are documented here.
 
 ---
 
-## v1.2.1 — 2026-04-08
+## v1.3.0 — 2026-04-08
 
 ### Bug fixes
 

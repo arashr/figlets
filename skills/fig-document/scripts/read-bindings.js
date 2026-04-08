@@ -1,7 +1,10 @@
-// Requires detect-ds-context.js pasted above (provides DS_CONTEXT).
+// Requires detect-ds-context.js pasted above (provides DS_CONTEXT, _allVars, _toHex).
 // Collect all design token bindings on the default variant.
 // Set `target` to the default variant node before running (from Step 2).
-// Returns JSON: [{ node, property, token }]
+// Returns JSON: [{ node, property, token, resolvedVal }]
+//
+// resolvedVal: hex string for colors (#rrggbb), "Npx" for floats, "N/M" for text styles,
+//              "—" when resolution fails.
 //
 // Covers both variable bindings (boundVariables) and text style bindings (textStyleId).
 
@@ -39,19 +42,51 @@ function collectBindings(node, bindings = []) {
   return bindings;
 }
 
+// Follow a VARIABLE_ALIAS chain via async API — handles newly-created collections whose
+// IDs may not be present in the pre-fetched _allVars snapshot.
+async function resolveVarValue(varId, depth) {
+  if (depth === undefined) depth = 0;
+  if (depth > 4) return null;
+  const v = await figma.variables.getVariableByIdAsync(varId);
+  if (!v) return null;
+  const raw = Object.values(v.valuesByMode)[0];
+  if (v.resolvedType === 'COLOR') {
+    if (raw && 'r' in raw) return { type: 'COLOR', v: raw };
+    if (raw?.type === 'VARIABLE_ALIAS') return resolveVarValue(raw.id, depth + 1);
+  } else if (v.resolvedType === 'FLOAT') {
+    if (typeof raw === 'number') return { type: 'FLOAT', v: raw };
+    if (raw?.type === 'VARIABLE_ALIAS') return resolveVarValue(raw.id, depth + 1);
+  }
+  return null;
+}
+
 const raw = collectBindings(target);
 
-// Resolve names: variables via getVariableByIdAsync, text styles from DS_CONTEXT
+// Resolve names and values
 const resolved = [];
 for (const b of raw) {
   if (b.varId) {
     const v = await figma.variables.getVariableByIdAsync(b.varId);
-    resolved.push({ node: b.node, property: b.property, token: v ? v.name : b.varId });
+    const tokenName = v ? v.name : b.varId;
+    let resolvedVal = '—';
+    const result = await resolveVarValue(b.varId);
+    if (result) {
+      if (result.type === 'COLOR') {
+        const c = result.v;
+        const h = x => Math.round(x * 255).toString(16).padStart(2, '0');
+        resolvedVal = `#${h(c.r)}${h(c.g)}${h(c.b)}`;
+      } else if (result.type === 'FLOAT') {
+        resolvedVal = `${result.v}px`;
+      }
+    }
+    resolved.push({ node: b.node, property: b.property, token: tokenName, resolvedVal });
   } else if (b.styleId) {
-    // Look up text style name from DS_CONTEXT (already loaded) or fall back to API
     const style = Object.values(DS_CONTEXT.textStyleByName).find(s => s.id === b.styleId);
     const styleName = style ? style.name : b.styleId;
-    resolved.push({ node: b.node, property: 'Text style', token: styleName });
+    const resolvedVal = style
+      ? `${style.fontSize}px / ${typeof style.lineHeight === 'object' ? (style.lineHeight.value ?? '?') : style.lineHeight}`
+      : '—';
+    resolved.push({ node: b.node, property: 'Text style', token: styleName, resolvedVal });
   }
 }
 return JSON.stringify(resolved);

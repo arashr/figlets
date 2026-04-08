@@ -1,11 +1,29 @@
 // Build the full spec sheet doc frame in Figma.
+// Requires detect-ds-context.js pasted above (provides _allTextStyles).
 // Required variables: compName (string), compSet (ComponentSet node), elements (array from read-bounds.js)
 
-// ── FONT LOADING ──────────────────────────────────────────────────────────────
+// ── FONT DETECTION ────────────────────────────────────────────────────────────
+// Use whatever font family the DS text styles use for doc sheet labels.
+// Detect the real semibold/bold style name — avoids 'Semi Bold' vs 'SemiBold' mismatch.
 
-await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
-await figma.loadFontAsync({ family: 'Inter', style: 'Semi Bold' });
-await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
+let _docFamily   = 'Inter';
+let _docRegular  = 'Regular';
+let _docSemibold = 'Semi Bold';
+let _docBold     = 'Bold';
+
+if (_allTextStyles.length > 0) {
+  _docFamily = _allTextStyles[0].fontName.family;
+  const stylesForFamily = _allTextStyles
+    .filter(s => s.fontName.family === _docFamily)
+    .map(s => s.fontName.style);
+  _docSemibold = stylesForFamily.find(s => /semi.?bold/i.test(s)) ?? 'Semi Bold';
+  _docBold     = stylesForFamily.find(s => /^bold$/i.test(s))     ?? 'Bold';
+  _docRegular  = stylesForFamily.find(s => /^regular$/i.test(s))  ?? 'Regular';
+}
+
+await figma.loadFontAsync({ family: _docFamily, style: _docRegular });
+await figma.loadFontAsync({ family: _docFamily, style: _docSemibold });
+await figma.loadFontAsync({ family: _docFamily, style: _docBold });
 
 // ── FIND OR CREATE DOCUMENTATION SECTION + REMOVE OLD SPEC ───────────────────
 
@@ -36,12 +54,38 @@ docSection.appendChild(doc);
 
 function makeLabel(parent, text) {
   const t = figma.createText();
-  t.fontName = { family: 'Inter', style: 'Semi Bold' };
+  t.fontName = { family: _docFamily, style: _docSemibold };
   t.characters = text; t.fontSize = 11;
   t.letterSpacing = { value: 2, unit: 'PIXELS' };
   t.fills = [{ type: 'SOLID', color: { r: 0.439, g: 0.439, b: 0.569 } }];
   parent.appendChild(t);
   return t;
+}
+
+// ── TABLE ROW HELPER ──────────────────────────────────────────────────────────
+// Creates a full-width row with height that hugs its content.
+// Rule: set counterAxisSizingMode = 'AUTO' BEFORE calling resize so the fixed
+// height from resize() is overridden — prevents compressed rows in the spec sheet.
+//
+// Usage: const row = makeTableRow(tableFrame, 1280, isHeader);
+//        then append cell text nodes to `row`.
+function makeTableRow(parent, totalW, isHeader) {
+  const row = figma.createFrame();
+  row.name = isHeader ? 'Header Row' : 'Row';
+  row.layoutMode = 'HORIZONTAL';
+  row.counterAxisAlignItems = 'CENTER';
+  row.itemSpacing = 0;
+  row.paddingTop = 10; row.paddingBottom = 10;
+  row.paddingLeft = 0; row.paddingRight = 0;
+  // Set AUTO sizing mode FIRST, then fix the width — prevents resize() from locking height.
+  row.primaryAxisSizingMode = 'FIXED';
+  row.counterAxisSizingMode = 'AUTO';
+  row.resize(totalW, 1); // width fixed; height expands to fit cell content
+  row.fills = isHeader
+    ? [{ type: 'SOLID', color: { r: 0.071, g: 0.071, b: 0.078 } }]
+    : [];
+  parent.appendChild(row);
+  return row;
 }
 
 // ── SECTION B — PREVIEW ───────────────────────────────────────────────────────
@@ -87,7 +131,7 @@ for (const variant of displayVariants) {
   vFrame.appendChild(vInst);
 
   const vLabel = figma.createText();
-  vLabel.fontName = { family: 'Inter', style: 'Regular' };
+  vLabel.fontName = { family: _docFamily, style: _docRegular };
   vLabel.characters = variant.name.replace(/,\s*/g, '\n');
   vLabel.fontSize = 10; vLabel.textAlignHorizontal = 'CENTER';
   vLabel.fills = [{ type: 'SOLID', color: { r: 0.439, g: 0.439, b: 0.569 } }];
@@ -120,7 +164,7 @@ elements.forEach(({ name, x, y, w, h }, idx) => {
   badge.x = bx; badge.y = by;
 
   const numT = figma.createText();
-  numT.fontName = { family: 'Inter', style: 'Bold' };
+  numT.fontName = { family: _docFamily, style: _docBold };
   numT.characters = String(n);
   numT.fontSize = n >= 10 ? 9 : 10;
   numT.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];

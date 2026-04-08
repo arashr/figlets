@@ -41,16 +41,17 @@ function _toHex(r, g, b) {
   return `#${h(r)}${h(g)}${h(b)}`;
 }
 
-// Resolve a FLOAT variable's value — follows one level of VARIABLE_ALIAS.
-function _resolveFloat(v) {
+// Resolve a FLOAT variable's value — follows VARIABLE_ALIAS chains up to 5 levels deep.
+// Multi-level chains arise when component-scoped tokens alias semantic tokens which
+// alias primitives (e.g. Tag·Size → spacing/sm → spacing/base/4).
+function _resolveFloat(v, _depth) {
+  if (_depth === undefined) _depth = 0;
+  if (_depth > 4) return null;
   const raw = Object.values(v.valuesByMode)[0];
   if (typeof raw === 'number') return raw;
   if (raw?.type === 'VARIABLE_ALIAS') {
     const target = _allVars.find(x => x.id === raw.id);
-    if (target) {
-      const tv = Object.values(target.valuesByMode)[0];
-      if (typeof tv === 'number') return tv;
-    }
+    if (target) return _resolveFloat(target, _depth + 1);
   }
   return null;
 }

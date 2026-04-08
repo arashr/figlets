@@ -35,16 +35,17 @@ for (const v of _allVars.filter(v => v.resolvedType === 'COLOR')) {
   }
 }
 
-// Resolve a variable's numeric value — handles both raw floats and one-level aliases.
-function _resolveFloat(v) {
+// Resolve a variable's numeric value — follows VARIABLE_ALIAS chains up to 5 levels deep.
+// Multi-level chains arise when component-scoped tokens alias semantic tokens which
+// alias primitives (e.g. Tag·Size → spacing/sm → spacing/base/4).
+function _resolveFloat(v, _depth) {
+  if (_depth === undefined) _depth = 0;
+  if (_depth > 4) return null;
   const raw = Object.values(v.valuesByMode)[0];
   if (typeof raw === 'number') return raw;
   if (raw && raw.type === 'VARIABLE_ALIAS') {
     const target = _allVars.find(x => x.id === raw.id);
-    if (target) {
-      const targetVal = Object.values(target.valuesByMode)[0];
-      if (typeof targetVal === 'number') return targetVal;
-    }
+    if (target) return _resolveFloat(target, _depth + 1);
   }
   return null;
 }

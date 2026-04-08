@@ -2,6 +2,14 @@
 // Substitute collection name, mode names, and variable values for the component being built.
 // Run via use_figma after the component variants are built.
 
+// ⚠️  ASYNC RULE — always use the Async variants. The synchronous versions are deprecated
+//     and will throw in some Figma plugin contexts:
+//       figma.variables.getLocalVariablesAsync()           ✓
+//       figma.variables.getLocalVariableCollectionsAsync() ✓
+//       figma.variables.getLocalVariables()                ✗  — NEVER use
+//       figma.variables.getLocalVariableCollections()      ✗  — NEVER use
+// This applies to every getOrCreateVar helper or size-collection script derived from this file.
+
 // 1. Create a variable collection for the type dimension
 const colls = await figma.variables.getLocalVariableCollectionsAsync();
 let typeColl = colls.find(c => c.name === 'Button · Type');

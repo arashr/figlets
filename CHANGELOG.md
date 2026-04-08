@@ -4,6 +4,29 @@ All notable changes to figlets are documented here.
 
 ---
 
+## v1.2.1 — 2026-04-08
+
+### Bug fixes
+
+#### `skills/shared/detect-ds-context.js` + `skills/shared/parse-variables.js`
+
+- **`_resolveFloat` now follows multi-level alias chains** — previously stopped after one hop, so component-scoped tokens that alias semantic tokens that alias primitives (e.g. `Tag·Size → spacing/sm → spacing/base/4`) returned `null` instead of the resolved pixel value. Now follows up to 5 levels. Fixes `—` showing up in the Resolved Value column of the token bindings table for variables in newly-created collections.
+
+#### `skills/fig-document/scripts/read-bindings.js`
+
+- **`resolvedVal` field added to output** — script now returns `[{ node, property, token, resolvedVal }]` instead of `[{ node, property, token }]`. Resolved value is `#rrggbb` for colors, `Npx` for floats, `fontSize/lineHeight` for text styles, `—` on failure. Resolution uses `getVariableByIdAsync` in a loop (not the pre-fetched `_allVars` snapshot) so variables in collections created in the same session are found reliably.
+
+#### `skills/fig-create/scripts/type-collection.js`
+
+- **Async lint guard added** — prominent `⚠️ ASYNC RULE` comment block at the top of the file lists `getLocalVariables()` and `getLocalVariableCollections()` as `✗ NEVER use`, and their async equivalents as `✓`. Any size-collection or `getOrCreateVar` helper derived from this template will carry the rule forward.
+
+#### `skills/fig-document/scripts/build-doc-frame.js`
+
+- **Font family and style detected from DS text styles** — replaced hardcoded `{ family: 'Inter', style: 'Semi Bold' }` / `'Bold'` / `'Regular'` throughout the script with `_docFamily`, `_docSemibold`, `_docBold`, `_docRegular` variables populated from `_allTextStyles` (provided by `detect-ds-context.js`). Regex `/semi.?bold/i` matches both `'Semi Bold'` (Inter) and `'SemiBold'` (Sora, Nunito, etc.). Fixes silent font-load fallback to Regular for spec sheet labels in non-Inter design systems.
+- **`makeTableRow` helper added** — creates full-width rows whose height hugs content. Sets `counterAxisSizingMode = 'AUTO'` before calling `resize(totalW, 1)` so the height is never locked by the resize call. Prevents compressed rows in the spec sheet tables. Comments document the required ordering rule.
+
+---
+
 ## v1.2.0 — 2026-04-07
 
 ### fig-setup 1.4.0

@@ -30,6 +30,15 @@ For `use_figma` calls (showcase phase), component API rules also apply: fill col
 
 ---
 
+## Shared design system contract
+
+- **Single source of truth:** The variable collections you create here are the authoritative library for `/fig-create`, `/fig-qa`, and `/fig-document`. All three skills load variables from this file and reference collection names via `DS.collections.*`.
+- **Naming stability matters:** Renaming or restructuring a collection after components have been built will cause fig-qa violations and broken token references in fig-document. Treat collection names as a public API — communicate changes before restructuring.
+- **Config = contract:** `design-system.config.js` is the machine-readable version of the decisions made here. Every collection name, mode name, and token naming pattern written to config must match what is built in Figma.
+- **No hardcoded user decisions in scripts:** Any value that varies between projects must come from `DS.*` read from `design-system.config.js` — never written as a literal in a script. This includes font families (`DS.typography.families.sans`), scale sizes (`DS.typography.scale`), collection names (`DS.collections.*`), breakpoint modes (`DS.breakpoints.modes`), brand colors (`DS.color.brand.*`), and spacing base (`DS.grid.base`). Fixed structural names (weight labels, t-shirt sizes, shadow property names) are fine as literals.
+
+---
+
 ## Phase 0 — Config Check
 
 Before asking any questions, check for an existing config file:

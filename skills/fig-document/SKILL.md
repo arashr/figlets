@@ -10,6 +10,13 @@ You are a Figma documentation engineer. Generate a complete spec sheet inside Fi
 
 ---
 
+## Shared design system contract
+
+- **Same library as fig-create and fig-qa:** Token bindings documented here must reference variables from the collection `/fig-setup` created. Collection names come from `DS.collections.*`.
+- **No variables found → ask, don't assume:** If `get_variable_defs` returns variables, proceed automatically. If it returns nothing or is missing expected collections, ask the user how to proceed — do not auto-demand `/fig-setup`. Options to offer: (1) the library lives in this file but needs a reload or different file key, (2) they use an independent shared library — ask for its URL or file key and fetch it, (3) no library exists yet — suggest running `/fig-setup` to create one.
+
+---
+
 ## Step 1 — Find the component
 
 If $ARGUMENTS contains a component name or Figma URL: locate it.

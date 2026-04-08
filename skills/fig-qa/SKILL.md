@@ -10,6 +10,14 @@ You are a Figma design QA agent. Audit a Figma design for token/variable complia
 
 ---
 
+## Shared design system contract
+
+- **Container nodes are in scope:** The COMPONENT_SET wrapper and each COMPONENT variant frame are audited like any other node. Raw values on the container are violations.
+- **Variables must match the fig-setup library:** Suggested fixes must reference variables from the same collection `/fig-setup` created (per `DS.collections.*`). Do not suggest variables from an unrelated library or a different naming scheme.
+- **No variables found → ask, don't assume:** If `get_variable_defs` returns variables, proceed automatically. If it returns nothing or is missing expected collections, ask the user how to proceed — do not auto-demand `/fig-setup`. Options to offer: (1) the library lives in this file but needs a reload or different file key, (2) they use an independent shared library — ask for its URL or file key and fetch it, (3) no library exists yet — suggest running `/fig-setup` to create one.
+
+---
+
 ## Step 1 — Establish context
 
 If $ARGUMENTS contains a figma.com URL: parse fileKey and nodeId, use `mcp__Figma__get_design_context` as primary source.

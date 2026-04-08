@@ -32,6 +32,15 @@ You are a Figma design system engineer. Build production-quality components: aut
 
 ---
 
+## Shared design system contract
+
+- **Single source of truth:** All variables must come from the library created by `/fig-setup`. Never create variables inside this skill or reference a different collection.
+- **Container must be fully token-bound:** The COMPONENT_SET wrapper and every COMPONENT variant frame are part of the component. Their fill, stroke, corner radius, padding, and gap must all be bound to variables — not hardcoded. `/fig-qa` audits the container too; raw values there are violations.
+- **No hardcoded user decisions in scripts:** Any value that varies between projects must come from `DS.*` read from `design-system.config.js` — never written as a literal in a script. This includes font families (`DS.typography.families.sans`), collection names (`DS.collections.*`), brand colors (`DS.color.brand.*`), and spacing base (`DS.grid.base`). Fixed structural names (weight labels, t-shirt sizes, shadow property names) are fine as literals.
+- **No variables found → ask, don't assume:** If `get_variable_defs` returns variables, proceed automatically. If it returns nothing or is missing expected collections, ask the user how to proceed — do not auto-demand `/fig-setup`. Options to offer: (1) the library lives in this file but needs a reload or different file key, (2) they use an independent shared library — ask for its URL or file key and fetch it, (3) no library exists yet — suggest running `/fig-setup` to create one.
+
+---
+
 ## Step 1 — Load variables
 
 Call `mcp__Figma__get_variable_defs` to retrieve all variables from the active file.
@@ -42,7 +51,7 @@ Parse into four maps:
 - `typographyVarByValue` — FLOAT variables whose name contains: font, size, line, tracking, letter, weight. Map value → variable. Use when explicitly narrowing to typography tokens.
 - `varByName` — all variables by name for direct lookup.
 
-If no variables found: ask for a library file key. If none available, warn that all values will be hardcoded and ask to proceed.
+If no variables found: follow the contract — ask the user how to proceed. Options: (1) reload or provide a different file key, (2) provide an independent shared library URL or file key to fetch, (3) run `/fig-setup` to create one.
 
 ---
 

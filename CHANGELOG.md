@@ -4,6 +4,15 @@ All notable changes to figlets are documented here.
 
 ---
 
+## v1.4.1 — 2026-04-09
+
+### fig-document
+
+- **Anatomy badges centered on elements** — removed the `x < 100` / `y < 20` edge-push logic that sent all badges outside the component when children start at `y = 0` (e.g. buttons). Badges now always place at `round(x + w/2 - BS/2)`, `round(y + h/2 - BS/2)`.
+- **`[SPEC]` block purpose clarified in SKILL.md** — added explicit note that the description update targets the component's Figma description field (not the canvas) and is purely for MCP handover via `get_design_context`.
+
+---
+
 ## v1.4.0 — 2026-04-09
 
 ### fig-document 1.1.0

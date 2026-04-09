@@ -21,17 +21,17 @@ await figma.loadFontAsync({ family: _detectedFamily, style: 'Bold' });
 // 2. Create node and set non-layout properties
 const comp = figma.createComponent();
 comp.name = 'ComponentName 1.0.0'; // new components always start at 1.0.0
-comp.layoutMode = 'HORIZONTAL';
+comp.layoutMode = 'HORIZONTAL';  // always auto-layout — never NONE
 comp.primaryAxisSizingMode = 'AUTO';
 comp.counterAxisSizingMode = 'AUTO';
+comp.clipsContent = false;        // component containers never clip
 comp.paddingTop = N; // raw value first
-comp.fills = [{ type: 'SOLID', color: { r, g, b } }]; // {r,g,b} only — no 'a'
+comp.fills = []; // component containers must never have a background fill
 
 // 3. Append to parent
 section.appendChild(comp);
 
-// 4. Bind variables (after append)
-bindFill(comp, 'token-name');
+// 4. Bind variables (after append) — fills excluded; container is intentionally transparent
 bindNum(comp, 'paddingTop', 'token-name');
 
 // 5. Create children, append, then set FILL sizing
@@ -99,6 +99,7 @@ if (propKey) textNode.componentPropertyReferences = { characters: propKey };
 const set = figma.combineAsVariants(variants, pg);
 set.name = 'ComponentName 1.0.0'; // new: 1.0.0 | update: bump per versioning rule
 // ... set layoutMode, itemSpacing, padding ...
+set.clipsContent = false; // component set containers never clip
 
 // Bind the wrapper's own tokens
 bindRadius(set, 'xs');           // 5px default → xs (4px nearest)

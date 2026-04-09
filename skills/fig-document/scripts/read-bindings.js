@@ -1,12 +1,13 @@
 // Requires detect-ds-context.js pasted above (provides DS_CONTEXT, _allVars, _toHex).
 // Collect all design token bindings on the default variant.
-// Set `target` to the default variant node before running (from Step 2).
+// Set `target` to the default variant node before running (from read-bounds.js).
 // Returns JSON: [{ node, property, token, resolvedVal }]
 //
 // resolvedVal: hex string for colors (#rrggbb), "Npx" for floats, "N/M" for text styles,
 //              "—" when resolution fails.
 //
 // Covers both variable bindings (boundVariables) and text style bindings (textStyleId).
+// Uses _allVars (pre-fetched by detect-ds-context.js) — no async variable lookups needed.
 
 function collectBindings(node, bindings = []) {
   if (node.type === 'INSTANCE') return bindings;
@@ -42,12 +43,10 @@ function collectBindings(node, bindings = []) {
   return bindings;
 }
 
-// Follow a VARIABLE_ALIAS chain via async API — handles newly-created collections whose
-// IDs may not be present in the pre-fetched _allVars snapshot.
-async function resolveVarValue(varId, depth) {
-  if (depth === undefined) depth = 0;
+// Follow a VARIABLE_ALIAS chain using the pre-fetched _allVars snapshot (sync — no async needed).
+function resolveVarValue(varId, depth = 0) {
   if (depth > 4) return null;
-  const v = await figma.variables.getVariableByIdAsync(varId);
+  const v = _allVars.find(v => v.id === varId);
   if (!v) return null;
   const raw = Object.values(v.valuesByMode)[0];
   if (v.resolvedType === 'COLOR') {
@@ -62,14 +61,14 @@ async function resolveVarValue(varId, depth) {
 
 const raw = collectBindings(target);
 
-// Resolve names and values
+// Resolve names and values (fully synchronous — no async calls)
 const resolved = [];
 for (const b of raw) {
   if (b.varId) {
-    const v = await figma.variables.getVariableByIdAsync(b.varId);
+    const v = _allVars.find(v => v.id === b.varId);
     const tokenName = v ? v.name : b.varId;
     let resolvedVal = '—';
-    const result = await resolveVarValue(b.varId);
+    const result = resolveVarValue(b.varId);
     if (result) {
       if (result.type === 'COLOR') {
         const c = result.v;

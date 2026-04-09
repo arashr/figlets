@@ -1,12 +1,21 @@
 ---
 name: fig-document
-version: 1.0.0
-description: Generate a complete visual spec sheet and MCP-ready handover file for a Figma component. Creates anatomy diagram with real bounding box positions, variant showcase, token bindings table, and writes a local component-specs/[Name].md file for LLM coding context. Run after /fig-qa is clean.
+version: 1.1.0
+description: Generate a complete visual spec sheet and MCP-ready handover file for a Figma component. Creates anatomy diagram, variant showcase with per-variant purpose notes, and writes a local component-specs/[Name].md file for LLM coding context. Run after /fig-qa is clean.
 ---
 
 # fig-document
 
 You are a Figma documentation engineer. Generate a complete spec sheet inside Figma and a machine-readable handover file that any LLM can use to implement the component correctly in code.
+
+---
+
+## PRE-FLIGHT: Figma API rules (apply to every text node in the spec sheet)
+
+1. **Never create bare text nodes directly inside a table row.** Always use `makeCell(row, text, width, style)` from `build-doc-frame.js`. It handles the cell frame, text node, and `textAutoResize` correctly. Rows that contain raw text nodes without proper sizing will render at 1px height and be invisible.
+2. **textAutoResize = 'HEIGHT'** — set on text nodes inside fixed-width cells (i.e. all `makeCell` text nodes). `makeCell` does this automatically.
+3. **textAutoResize = 'WIDTH_AND_HEIGHT'** — set on free-standing text nodes (section headers, annotations, labels outside tables) AFTER `parent.appendChild(node)`. `makeLabel` does this automatically — use it for all section label text.
+4. **layoutSizingHorizontal / layoutSizingVertical = 'FILL'** — set AFTER `parent.appendChild(node)`, never before.
 
 ---
 
@@ -18,85 +27,48 @@ You are a Figma documentation engineer. Generate a complete spec sheet inside Fi
 
 ---
 
-## Step 0 — Detect DS context
+## Step 1 — Identify the component and get variant names
 
-Read `~/.claude/skills/shared/detect-ds-context.js` — paste at the top of every `use_figma` script in this session. Provides the same `DS_CONTEXT` as fig-create and fig-qa so token names, typography strategy, and effect style names are consistent.
-
-Specifically used in this skill:
-- `DS_CONTEXT.colorVarByHex` + `DS_CONTEXT.floatVarByValue` — resolve token names for the bindings table
-- `DS_CONTEXT.textStyleByName` — identify text style tokens (from `read-bindings.js`)
-- `DS_CONTEXT.hasEffectStyles` + `DS_CONTEXT.effectStyleByName` — note elevation/shadow token names if present
-- `DS_CONTEXT.typographyStrategy` — determines how to label typography rows in the token table
-
----
-
-## Step 1 — Find the component
-
-If $ARGUMENTS contains a component name or Figma URL: locate it.
+If $ARGUMENTS contains a component name or Figma URL: use it.
 
 Otherwise call `mcp__Figma__get_design_context` (no params). Use the selected COMPONENT or COMPONENT_SET if present. If nothing is selected, ask: "Which component should I document? (name or select it in Figma)"
 
-Read `~/.claude/skills/fig-document/scripts/find-component.js`, substitute `'ComponentName'`, then run via `use_figma`. Returns component metadata.
+Note the component name, then read `~/.claude/skills/fig-document/scripts/find-component.js`, substitute `'ComponentName'` with the actual name, and run it in a `use_figma` call.
+
+Note the exact variant names from the result — you will need them verbatim in Step 2.
 
 ---
 
-## Step 2 — Read bounding boxes for anatomy
+## Step 2 — Run in ONE use_figma call
 
-Read `~/.claude/skills/fig-document/scripts/read-bounds.js`, substitute `'ComponentName'` with the actual component name, then run via `use_figma`. Returns `{ compW, compH, compBounds, elements[] }`.
+Read both scripts **in parallel** (one message, two Read tool calls):
+- `~/.claude/skills/shared/detect-ds-context.js`
+- `~/.claude/skills/fig-document/scripts/doc-runner.js`
 
-From the returned elements, select meaningful ones (skip anonymous wrapper frames; keep named elements representing distinct UI areas). Use their `x`, `y`, `w`, `h` to position annotation badges.
+Make exactly **THREE substitutions** in doc-runner.js before running:
 
----
+1. Replace `'COMPONENT_NAME'` with the actual component name (line 8)
+2. Replace the `_usageDo` / `_usageDont` arrays with 2–3 rules specific to this component
+3. Replace `const _variantDesc = {};` with a map of **exact variant name → short purpose** (≤10 words each):
+   ```js
+   const _variantDesc = {
+     'Type=Primary, Size=Default': 'High-emphasis action for the most important CTA',
+     'Type=Secondary, Size=Default': 'Lower-emphasis alternative alongside a primary button',
+     'Type=Ghost, Size=Default': 'Minimal style for tertiary or inline actions',
+   };
+   ```
+   Keys must be the **exact** variant name strings from Step 1 (including spacing and punctuation).
+   If a component is not a COMPONENT_SET, pass `{}`.
 
-## Step 3 — Collect token bindings
+Concatenate into one script: `[detect-ds-context.js content]\n[doc-runner.js with substitutions]`
 
-Read which design tokens are bound to which properties on the default variant:
-
-Read `~/.claude/skills/fig-document/scripts/read-bindings.js`, set `target` to the default variant from Step 2, then run via `use_figma`. Returns `[{ node, property, token }]`.
-
----
-
-## Step 4 — Build the spec sheet in Figma
-
-Read `~/.claude/skills/fig-document/scripts/build-doc-frame.js` then run via `use_figma`. Requires `compName`, `compSet`, and `elements` from Step 2.
-
-### Section A — Header
-
-Title (40px Bold, ink-black) + subtitle (16px Regular, ink-subtle, FILL width).
-
-### Section D — Properties table
-
-Striped rows table: PROPERTY | TYPE | DEFAULT VALUE. Dark header row (ink-black-soft bg, ink-subtle text). Alternating white/paper-tinted rows. One row per component property from `comp.componentPropertyDefinitions`.
-
-### Section E — Token bindings table
-
-Columns: **Node** · **Property** · **Token** · **Resolved Value**
-
-Resolved value: look up the token's first-mode value (hex for colors, px for floats).
-
-### Section F — Spacing & sizing
-
-Plain text annotations listing key measurements and their tokens. One line per measurement: `Padding: 48px all sides → 2xl token`
-
-### Section G — Anatomy
-
-Wrapper frame at the component's natural width and height, `layoutMode = 'HORIZONTAL'` (to allow ABSOLUTE children), `clipsContent = false`.
-
-Place a live instance inside at natural size (ABSOLUTE, x=0, y=0).
-
-Badge positioning and anatomy frame building is handled by `build-doc-frame.js` (loaded in Step 4).
-
-Below the wrapper, a legend table: **#** · **Element** · **Description**. Each description should mention: role, token binding if applicable, text property if applicable.
-
-### Section H — Usage guidelines (Do / Don't)
-
-Two panels (green/red bordered frames) with 1–3 usage rules specific to this component.
+Run as a single `use_figma` call. The script handles everything: bounds, bindings (sync), fonts, DS-adaptive palette, doc frame, Sections A–G, and description update.
 
 ---
 
-## Step 5 — Write local spec file
+## Step 3 — Write local spec file
 
-Write `component-specs/[ComponentName].md` in the project working directory. Fill all sections from Steps 1–4 with real values — no placeholders.
+Write `component-specs/[ComponentName].md` in the project working directory. Fill all sections from Step 2 with real values — no placeholders.
 
 ```markdown
 # [ComponentName]
@@ -194,17 +166,7 @@ Write `component-specs/[ComponentName].md` in the project working directory. Fil
 
 ---
 
-## Step 6 — Update Figma component description for MCP handover
-
-Read `~/.claude/skills/fig-document/scripts/update-description.js`, substitute `compName`, `variantDimensions`, `propList`, `tokenSummary`, `a11ySummary`, then run via `use_figma`.
-
-Format for `tokenSummary`: `bg=paper, title=ink-black, padding=2xl, fontSize=body`
-Format for `variantDimensions`: `Layout=Horizontal|Vertical, Emphasis=Full|Minimal`
-Format for `a11ySummary`: `title:16.6:1✓, secondary:3.9:1⚠`
-
----
-
-## Step 7 — Final output
+## Step 4 — Final output
 
 ```
 ### Documentation complete
@@ -215,9 +177,8 @@ Format for `a11ySummary`: `title:16.6:1✓, secondary:3.9:1⚠`
 
 Sections:
   ✓ Preview
-  ✓ Variant showcase ([N] variants)
+  ✓ Variant showcase ([N] variants with purpose notes)
   ✓ Properties ([N] properties)
-  ✓ Token bindings ([N] bindings)
   ✓ Spacing & sizing
   ✓ Anatomy ([N] annotated elements)
   ✓ Usage guidelines

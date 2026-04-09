@@ -4,6 +4,69 @@ All notable changes to figlets are documented here.
 
 ---
 
+## v1.4.0 — 2026-04-09
+
+### fig-document 1.1.0
+
+#### New: `doc-runner.js` — single-file spec sheet pipeline
+
+Replaces the multi-script step approach with one concatenated script (`detect-ds-context.js` + `doc-runner.js`). All sections — bounds, bindings, fonts, palette, frame construction — run in a single `use_figma` call. Three substitution points at the top of the file:
+
+1. `compName` — component name string
+2. `_usageDo` / `_usageDont` — usage guideline arrays
+3. `_variantDesc` — map of exact variant name → ≤10-word purpose string (new)
+
+#### New: variant showcase redesigned for designers and PMs
+
+- **All variants shown** — removed the 6-variant cap; every variant in the COMPONENT_SET is included
+- **Wrapping layout** — showcase uses `layoutWrap = 'WRAP'` and fills the full doc width so variants flow into rows rather than extending off-canvas
+- **Per-variant descriptions** — each card shows a purpose line below the variant name when `_variantDesc[v.name]` is populated; Claude generates these at skill run time from the variant names obtained in the pre-step
+- **Legibility** — variant name changed from 10px regular/subtle to 11px semibold/ink for easier scanning
+
+#### Removed: Token Bindings table from Figma spec sheet
+
+The token bindings table (Section E) has been removed from the visual spec sheet — it has no value for designers and PMs. Token binding data is still collected and written to `component-specs/[Name].md` for LLM and developer handover, and the Sizing section still shows padding/spacing token references.
+
+#### Bug fixes
+
+- **`resize()` resets sizing modes (critical)** — `primaryAxisSizingMode`/`counterAxisSizingMode` are now set *after* `resize()` in all five locations (`doc` frame, `_mkTable`, `_mkRow`, `_mkCell`, `_secF`). Previously, `resize()` silently overwrote these to `'FIXED'`, causing every auto-sized container to render at 1px height.
+- **Property name regex strips Figma node-ID suffixes (moderate)** — changed `/#\d+$/` to `/#[^#]+$/` in both the Properties table and the `[SPEC]` description block. Figma uses `name#<number>:<number>` format (e.g. `label#31:0`); the old regex never matched because `:0` is not pure digits.
+- **Anatomy badges cluster and overflow (minor)** — `_collectEl` now skips depth 0 (the root component frame, which placed a badge at negative coordinates) and skips `INSTANCE`-type nodes (which share their parent `FRAME`'s bounding box, causing duplicate overlapping badges).
+- **`_dsCol` follows VARIABLE_ALIAS chains** — semantic color tokens are stored as aliases to primitives; the previous `raw?.r !== undefined` gate always failed on aliases, so every palette color fell back to the hardcoded warm-cream defaults. `_dsCol` now recursively resolves alias chains (up to depth 4), matching the same logic used in `_resolveVar`.
+
+#### Workflow update (`SKILL.md`)
+
+- Step 1 now runs `find-component.js` to obtain exact variant name strings before generating `_variantDesc`
+- Step 2 documents all three substitutions with a worked example
+- Step 4 output updated to reflect removed Token Bindings section
+
+---
+
+### fig-document (prior changes in this cycle)
+
+#### `build-doc-frame.js`
+
+- **`_dsColor()` palette helper added** — resolves spec sheet colors from DS variable names before falling back to hardcoded neutral values; wired to all color references in preview frame, showcase, anatomy badges, table rows, and label fills
+- **`makeCell()` helper added** — creates a fixed-width cell frame containing a correctly-sized text node (`textAutoResize = 'HEIGHT'`); documents the rule that bare text nodes must never be appended directly to table rows
+- **`makeTableRow()` updated** — `counterAxisAlignItems` changed from `'CENTER'` to `'MIN'` (top-align for multi-line cells); padding increased from 10px to 12px
+- **`textAutoResize = 'WIDTH_AND_HEIGHT'`** set after `appendChild` on section labels and variant labels (previously missing, which caused 0-height text on free-standing nodes)
+
+#### `read-bindings.js`
+
+- **`resolveVarValue` converted from async to sync** — now uses `_allVars.find()` from the `detect-ds-context.js` snapshot instead of `figma.variables.getVariableByIdAsync()`; removes all `await` calls in the resolution loop, making the script fully synchronous
+
+---
+
+### fig-create
+
+#### `SKILL.md` + `node-patterns.js` — container fill and clip rules clarified
+
+- **Containers must never have a background fill** — `fills = []` is now explicit and mandatory on both `COMPONENT` and `COMPONENT_SET` nodes; `bindFill` on the container is no longer listed as a binding step; any fill on a container is a `/fig-qa` violation
+- **`clipsContent = false` added to pattern** — must be set immediately after creating `COMPONENT` and `COMPONENT_SET` nodes, before appending children; added to `node-patterns.js` for both single-component and variant-set patterns
+- **Container layout rule** — `layoutMode` must always be `'HORIZONTAL'` or `'VERTICAL'`, never `'NONE'`
+
+---
+
 ## v1.3.0 — 2026-04-08
 
 ### Bug fixes

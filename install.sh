@@ -7,11 +7,14 @@ SKILLS=("fig-setup" "fig-create" "fig-qa" "fig-document")
 RAW="https://raw.githubusercontent.com/${REPO}/main/skills"
 
 # Scripts bundled with each skill
-declare -A SCRIPTS
-SCRIPTS["fig-setup"]="create-text-styles.js create-elevation-styles.js showcase-color.js showcase-typography.js showcase-spacing.js showcase-scrim.js showcase-elevation.js"
-SCRIPTS["fig-create"]="collect-values.js post-build-audit.js effect-preservation.js variant-wiring.js type-collection.js component-lifecycle.js node-patterns.js"
-SCRIPTS["fig-qa"]="audit-traverse.js fix-violation.js"
-SCRIPTS["fig-document"]="read-bounds.js read-bindings.js find-component.js build-doc-frame.js update-description.js"
+skill_scripts() {
+  case "$1" in
+    fig-setup)    echo "create-text-styles.js create-elevation-styles.js showcase-color.js showcase-typography.js showcase-spacing.js showcase-scrim.js showcase-elevation.js" ;;
+    fig-create)   echo "collect-values.js post-build-audit.js effect-preservation.js variant-wiring.js type-collection.js component-lifecycle.js node-patterns.js" ;;
+    fig-qa)       echo "audit-traverse.js fix-violation.js" ;;
+    fig-document) echo "read-bounds.js read-bindings.js find-component.js build-doc-frame.js update-description.js" ;;
+  esac
+}
 
 # Shared scripts
 SHARED_SCRIPTS="bind-helpers.js component-utils.js section-utils.js"
@@ -31,7 +34,7 @@ mkdir -p "${SKILLS_DIR}/shared"
 if command -v curl &>/dev/null; then
   for skill in "${SKILLS[@]}"; do
     curl -fsSL "${RAW}/${skill}/SKILL.md" -o "${SKILLS_DIR}/${skill}/SKILL.md"
-    for script in ${SCRIPTS[$skill]}; do
+    for script in $(skill_scripts "$skill"); do
       curl -fsSL "${RAW}/${skill}/scripts/${script}" -o "${SKILLS_DIR}/${skill}/scripts/${script}"
     done
     echo "  ✓ ${skill}"
@@ -43,7 +46,7 @@ if command -v curl &>/dev/null; then
 elif command -v wget &>/dev/null; then
   for skill in "${SKILLS[@]}"; do
     wget -qO "${SKILLS_DIR}/${skill}/SKILL.md" "${RAW}/${skill}/SKILL.md"
-    for script in ${SCRIPTS[$skill]}; do
+    for script in $(skill_scripts "$skill"); do
       wget -qO "${SKILLS_DIR}/${skill}/scripts/${script}" "${RAW}/${skill}/scripts/${script}"
     done
     echo "  ✓ ${skill}"

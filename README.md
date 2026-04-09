@@ -48,7 +48,7 @@ Claude should describe the file contents. If it does, figlets is ready to use.
 curl -fsSL https://raw.githubusercontent.com/arashr/figlets/main/install.sh | bash
 ```
 
-Downloads the three SKILL.md files into `~/.claude/skills/`. Works on macOS and Linux. No git or npm required.
+Downloads the skill files into `~/.claude/skills/`. Works on macOS (bash 3.2+) and Linux. No git or npm required.
 
 ### Via Claude plugin marketplace
 

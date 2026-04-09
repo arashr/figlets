@@ -312,8 +312,8 @@ _wrapper.appendChild(_anatInst); _anatInst.layoutPositioning = 'ABSOLUTE'; _anat
 const _BS = 22;
 elements.forEach(({ x, y, w, h }, idx) => {
   const n = idx + 1;
-  const bx = x < 100 ? x - _BS - 6 : Math.round(x + w/2 - _BS/2);
-  const by = y < 20  ? -_BS - 4     : Math.round(y + h/2 - _BS/2);
+  const bx = Math.round(x + w/2 - _BS/2);
+  const by = Math.round(y + h/2 - _BS/2);
   const _b = figma.createEllipse();
   _b.name = `Badge ${n}`; _b.resize(_BS, _BS); _b.fills = [{ type: 'SOLID', color: _cBadge }];
   _wrapper.appendChild(_b); _b.layoutPositioning = 'ABSOLUTE'; _b.x = bx; _b.y = by;

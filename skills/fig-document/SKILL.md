@@ -62,7 +62,9 @@ Make exactly **THREE substitutions** in doc-runner.js before running:
 
 Concatenate into one script: `[detect-ds-context.js content]\n[doc-runner.js with substitutions]`
 
-Run as a single `use_figma` call. The script handles everything: bounds, bindings (sync), fonts, DS-adaptive palette, doc frame, Sections A–G, and description update.
+Run as a single `use_figma` call. The script handles everything: bounds, bindings (sync), fonts, DS-adaptive palette, doc frame, and Sections A–G.
+
+It also writes a `[SPEC]` machine-readable block to the **component's description field** (not the spec sheet canvas). This is purely for MCP handover — it lets tools like `get_design_context` surface the component's variant list, properties, and spec-file path without opening the file. It has no visual presence on the spec sheet.
 
 ---
 

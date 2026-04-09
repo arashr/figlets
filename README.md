@@ -145,18 +145,17 @@ Generates a complete spec sheet and a machine-readable handover file.
 
 **Figma spec sheet** (`[ComponentName] · Spec` frame, Documentation section):
 - Live preview of the default variant
-- Variant showcase (all variants side by side)
+- Variant showcase — all variants, wrapping layout, with per-variant purpose notes
 - Properties table (TYPE / DEFAULT VALUE)
-- Token bindings table (NODE / PROPERTY / TOKEN / RESOLVED VALUE)
 - Spacing & sizing annotations
-- Anatomy diagram — numbered badges positioned from real bounding boxes
+- Anatomy diagram — numbered badges centered on real bounding boxes
 - Do / Don't usage guidelines
 
 **Local file** (`component-specs/[ComponentName].md`):
 - Variants, properties, token bindings, accessibility results, sizing, anatomy — all in one LLM-readable file
 - Spec-oriented, no framework code — any LLM can implement the component correctly in any stack
 
-**Figma description** updated with a compact `[SPEC]` block for MCP tool context.
+**Figma description field** updated with a compact `[SPEC]` block — machine-readable metadata for MCP tools (`get_design_context`); not visible on the spec sheet canvas.
 
 ```
 /fig-document                       # uses current Figma selection

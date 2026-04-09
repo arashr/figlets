@@ -4,6 +4,14 @@ All notable changes to figlets are documented here.
 
 ---
 
+## v1.4.2 — 2026-04-09
+
+### Docs
+
+- **README `fig-document` section updated** — variant showcase reflects wrap layout and per-variant purpose notes; token bindings table bullet removed (canvas-only change; bindings remain in the `.md` file); anatomy wording updated to "centered on real bounding boxes"; `[SPEC]` block clarified as description-field metadata for MCP, not visible on the spec sheet canvas.
+
+---
+
 ## v1.4.1 — 2026-04-09
 
 ### fig-document

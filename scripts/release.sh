@@ -8,6 +8,7 @@ set -e
 
 BUMP=${1:-patch}
 PLUGIN_JSON=".claude-plugin/plugin.json"
+MARKETPLACE_JSON=".claude-plugin/marketplace.json"
 
 # Must be run from repo root
 if [ ! -f "$PLUGIN_JSON" ]; then
@@ -74,15 +75,17 @@ if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
   exit 0
 fi
 
-# Bump version in plugin.json (macOS + Linux compatible)
+# Bump version in plugin.json and marketplace.json (macOS + Linux compatible)
 if [[ "$OSTYPE" == "darwin"* ]]; then
   sed -i '' "s/\"version\": \"${CURRENT}\"/\"version\": \"${NEW_VERSION}\"/" "$PLUGIN_JSON"
+  sed -i '' "s/\"version\": \"${CURRENT}\"/\"version\": \"${NEW_VERSION}\"/" "$MARKETPLACE_JSON"
 else
   sed -i "s/\"version\": \"${CURRENT}\"/\"version\": \"${NEW_VERSION}\"/" "$PLUGIN_JSON"
+  sed -i "s/\"version\": \"${CURRENT}\"/\"version\": \"${NEW_VERSION}\"/" "$MARKETPLACE_JSON"
 fi
 
 # Commit, tag, push
-git add "$PLUGIN_JSON"
+git add "$PLUGIN_JSON" "$MARKETPLACE_JSON"
 git commit -m "chore: release v${NEW_VERSION}"
 git tag "v${NEW_VERSION}"
 git push origin main
